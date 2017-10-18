@@ -50,11 +50,30 @@ function updateToNewEmberQUnitImports(j, root) {
 
   let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
 
-  // Replace old with new test helpers imports
+  // Collect all imports from ember-qunit into local array
+  let importNames = [];
   emberQUnitImports
     .find(j.ImportSpecifier)
-    .filter(p => Object.keys(mapping).includes(p.node.imported.name))
-    .replaceWith(p => j.importSpecifier(j.identifier(mapping[p.node.imported.name])));
+    .forEach(p => {
+      // Map them to the new imports
+      let importName = p.node.imported.name;
+      let mappedName = mapping[importName] || importName;
+
+      // Only include non-duplicated imports
+      if (!importNames.includes(mappedName)) {
+        importNames.push(mappedName);
+      }
+    })
+    // Remove all existing import specifiers
+    .remove();
+
+  emberQUnitImports.forEach(p => {
+    // Add non-duplicated mapped import specifiers back to the import statement
+    for (let i = 0; i < importNames.length; i++) {
+      let specifier = j.importSpecifier(j.identifier(importNames[i]));
+      p.node.specifiers.push(specifier);
+    }
+  });
 }
 
 module.exports = function(file, api, options) {
