@@ -1,2 +1,2 @@
 import { test, skip } from 'qunit';
-import { moduleFor } from 'ember-qunit';
+import { setupTest } from 'ember-qunit';

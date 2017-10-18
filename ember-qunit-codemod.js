@@ -1,17 +1,7 @@
-module.exports = function(file, api, options) {
-  const j = api.jscodeshift;
-
-  const printOptions = options.printOptions || { quote: 'single' };
-  const root = j(file.source);
-
-  // Find `ember-qunit` imports
+function moveQUnitImportsFromEmberQUnit(j, root) {
   let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
-  if (emberQUnitImports.size() === 0) {
-    return file.source;
-  }
-
   // Find `module` and `test` imports
-  let migrateToQUnitImport = ['test', 'skip'];
+  let migrateToQUnitImport = ['module', 'test', 'skip', 'todo'];
 
   // Replace old with new test helpers imports
   let removedQUnitImports = emberQUnitImports
@@ -49,6 +39,38 @@ module.exports = function(file, api, options) {
 
     removedQUnitImports.remove();
   }
+}
+
+function updateToNewEmberQUnitImports(j, root) {
+  let mapping = {
+    moduleFor: 'setupTest',
+    moduleForComponent: 'setupRenderingTest',
+    moduleForModel: 'setupTest',
+  };
+
+  let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
+
+  // Replace old with new test helpers imports
+  emberQUnitImports
+    .find(j.ImportSpecifier)
+    .filter(p => Object.keys(mapping).includes(p.node.imported.name))
+    .replaceWith(p => j.importSpecifier(j.identifier(mapping[p.node.imported.name])));
+}
+
+module.exports = function(file, api, options) {
+  const j = api.jscodeshift;
+
+  const printOptions = options.printOptions || { quote: 'single' };
+  const root = j(file.source);
+
+  // Find `ember-qunit` imports
+  let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
+  if (emberQUnitImports.size() === 0) {
+    return file.source;
+  }
+
+  moveQUnitImportsFromEmberQUnit(j, root);
+  updateToNewEmberQUnitImports(j, root);
 
   return root.toSource(printOptions);
 };
