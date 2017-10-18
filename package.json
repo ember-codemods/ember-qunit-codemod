@@ -1,0 +1,34 @@
+{
+  "name": "ember-qunit-codemod",
+  "version": "0.0.0",
+  "description": "codemod script for ember-qunit",
+  "keywords": [
+    "codemod",
+    "qunit",
+    "qunit-dom"
+  ],
+  "homepage": "https://github.com/rwjblue/ember-qunit-codemod#readme",
+  "bugs": {
+    "url": "https://github.com/rwjblue/ember-qunit-codemod/issues"
+  },
+  "license": "MIT",
+  "author": "Robert Jackson <me@rwjblue.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rwjblue/ember-qunit-codemod.git"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "dependencies": {
+    "jscodeshift": "^0.3.32"
+  },
+  "devDependencies": {
+    "babel-preset-env": "^1.6.0",
+    "eslint": "^4.1.0",
+    "eslint-config-prettier": "^2.6.0",
+    "eslint-plugin-prettier": "^2.3.1",
+    "jest": "^21.0.0"
+  }
+}
