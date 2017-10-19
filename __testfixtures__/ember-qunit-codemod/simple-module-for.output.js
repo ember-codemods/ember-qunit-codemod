@@ -1,4 +1,4 @@
-import { test } from 'qunit';
+import { module, test } from 'qunit';
 import { setupTest } from 'ember-qunit';
 
 module('Unit | Service | Foo', function(hooks) {

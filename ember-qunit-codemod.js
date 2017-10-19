@@ -3,7 +3,7 @@ function moveQUnitImportsFromEmberQUnit(j, root) {
   // Find `module` and `test` imports
   let migrateToQUnitImport = ['module', 'test', 'skip', 'todo'];
 
-  let specifiers = new Set();
+  let specifiers = new Set(['module']);
   // Replace old with new test helpers imports
   emberQUnitImports
     .find(j.ImportSpecifier)
