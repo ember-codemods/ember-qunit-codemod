@@ -42,7 +42,7 @@ function updateToNewEmberQUnitImports(j, root) {
   let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
 
   // Collect all imports from ember-qunit into local array
-  let importNames = [];
+  let specifiers = new Set();
   emberQUnitImports
     .find(j.ImportSpecifier)
     .forEach(p => {
@@ -50,21 +50,14 @@ function updateToNewEmberQUnitImports(j, root) {
       let importName = p.node.imported.name;
       let mappedName = mapping[importName] || importName;
 
-      // Only include non-duplicated imports
-      if (!importNames.includes(mappedName)) {
-        importNames.push(mappedName);
-      }
+      specifiers.add(mappedName);
     })
     // Remove all existing import specifiers
     .remove();
 
-  emberQUnitImports.forEach(p => {
-    // Add non-duplicated mapped import specifiers back to the import statement
-    for (let i = 0; i < importNames.length; i++) {
-      let specifier = j.importSpecifier(j.identifier(importNames[i]));
-      p.node.specifiers.push(specifier);
-    }
-  });
+  emberQUnitImports
+    .get('specifiers')
+    .replace(Array.from(specifiers).map(s => j.importSpecifier(j.identifier(s))));
 }
 
 function updateModuleForToNestedModule(j, root) {
