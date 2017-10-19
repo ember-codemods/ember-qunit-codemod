@@ -67,6 +67,69 @@ function updateToNewEmberQUnitImports(j, root) {
   });
 }
 
+function updateModuleForToNestedModule(j, root) {
+  const POSSIBLE_MODULES = [
+    { expression: { callee: { name: 'moduleFor' } } },
+    { expression: { callee: { name: 'moduleForComponent' } } },
+    { expression: { callee: { name: 'moduleForModel' } } },
+  ];
+
+  function isModuleDefinition(nodePath) {
+    return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
+  }
+
+  function createModule(p) {
+    let calleeName = p.node.expression.callee.name;
+    // Find the moduleName and the module's options
+    let moduleName, options;
+    let calleeArguments = p.node.expression.arguments;
+    let lastArgument = calleeArguments[calleeArguments.length - 1];
+    if (lastArgument.type === 'ObjectExpression') {
+      options = lastArgument;
+    }
+    moduleName = calleeArguments[1] || calleeArguments[1];
+
+    // Create the new `module(moduleName, function(hooks) {});` invocation
+    let callback = j.functionExpression(
+      null /* no function name */,
+      [j.identifier('hooks')],
+      j.blockStatement([
+        j.expressionStatement(
+          j.callExpression(
+            j.identifier(calleeName === 'moduleForComponent' ? 'setupRenderingTest' : 'setupTest'),
+            [j.identifier('hooks')]
+          )
+        ),
+      ])
+    );
+    let moduleInvocation = j.expressionStatement(
+      j.callExpression(j.identifier('module'), [moduleName, callback])
+    );
+
+    return [moduleInvocation, callback.body.body];
+  }
+
+  let programPath = root.get('program');
+  let bodyPath = programPath.get('body');
+
+  let bodyReplacement = [];
+  let currentModuleCallbackBody;
+  bodyPath.each(expressionPath => {
+    let expression = expressionPath.node;
+    if (isModuleDefinition(expressionPath)) {
+      let result = createModule(expressionPath);
+      bodyReplacement.push(result[0]);
+      currentModuleCallbackBody = result[1];
+    } else if (currentModuleCallbackBody) {
+      currentModuleCallbackBody.push(expression);
+    } else {
+      bodyReplacement.push(expression);
+    }
+  });
+
+  bodyPath.replace(bodyReplacement);
+}
+
 module.exports = function(file, api, options) {
   const j = api.jscodeshift;
 
@@ -81,6 +144,7 @@ module.exports = function(file, api, options) {
 
   moveQUnitImportsFromEmberQUnit(j, root);
   updateToNewEmberQUnitImports(j, root);
+  updateModuleForToNestedModule(j, root);
 
   return root.toSource(printOptions);
 };
