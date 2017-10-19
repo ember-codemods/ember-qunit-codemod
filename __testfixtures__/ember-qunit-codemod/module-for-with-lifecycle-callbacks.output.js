@@ -4,7 +4,7 @@ import { setupTest } from 'ember-qunit';
 module('Unit | Service | Foo', function(hooks) {
   setupTest(hooks);
 
-  hooks.beforeEach(function beforeEach() {
+  hooks.beforeEach(function() {
     doStuff();
   });
 
@@ -16,7 +16,7 @@ module('Unit | Service | Foo', function(hooks) {
 module('Unit | Service | Foo', function(hooks) {
   setupTest(hooks);
 
-  hooks.after(function after() {
+  hooks.after(function() {
     afterStuff();
   });
 
@@ -33,15 +33,15 @@ module('Unit | Service | Foo', function(hooks) {
     let foo = 'bar';
   });
 
-  hooks.beforeEach(function beforeEach(assert) {
+  hooks.beforeEach(function(assert) {
     assert.ok(true, 'lol');
   });
 
-  hooks.afterEach(function afterEach() {
+  hooks.afterEach(function() {
     herk = derp;
   });
 
-  hooks.after(function after() {
+  hooks.after(function() {
     afterStuff();
   });
 

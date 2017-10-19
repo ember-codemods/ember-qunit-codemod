@@ -113,8 +113,6 @@ function updateModuleForToNestedModule(j, root) {
     if (options) {
       options.properties.forEach(property => {
         if (isLifecycleHook(property)) {
-          // Use the lifecycle hook name as a fallback function name
-          property.value.id = property.value.id || property.key.name;
           let lifecycleStatement = j.expressionStatement(
             j.callExpression(j.memberExpression(j.identifier('hooks'), property.key), [
               property.value,
