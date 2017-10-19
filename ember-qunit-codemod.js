@@ -75,12 +75,12 @@ function updateModuleForToNestedModule(j, root) {
     let calleeName = p.node.expression.callee.name;
     // Find the moduleName and the module's options
     let moduleName, options;
-    let calleeArguments = p.node.expression.arguments;
+    let calleeArguments = p.node.expression.arguments.slice();
     let lastArgument = calleeArguments[calleeArguments.length - 1];
     if (lastArgument.type === 'ObjectExpression') {
-      options = lastArgument;
+      options = calleeArguments.pop();
     }
-    moduleName = calleeArguments[1] || calleeArguments[1];
+    moduleName = calleeArguments[1] || calleeArguments[0];
 
     // Create the new `module(moduleName, function(hooks) {});` invocation
     let callback = j.functionExpression(
