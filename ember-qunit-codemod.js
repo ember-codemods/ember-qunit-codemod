@@ -3,42 +3,33 @@ function moveQUnitImportsFromEmberQUnit(j, root) {
   // Find `module` and `test` imports
   let migrateToQUnitImport = ['module', 'test', 'skip', 'todo'];
 
+  let specifiers = new Set();
   // Replace old with new test helpers imports
-  let removedQUnitImports = emberQUnitImports
+  emberQUnitImports
     .find(j.ImportSpecifier)
-    .filter(p => migrateToQUnitImport.includes(p.node.imported.name));
+    .filter(p => migrateToQUnitImport.includes(p.node.imported.name))
+    .forEach(p => specifiers.add(p.node.imported.name))
+    .remove();
 
-  if (removedQUnitImports.size() !== 0) {
-    // Find existing `qunit` imports
-    let qunitImports = root.find(j.ImportDeclaration, { source: { value: 'qunit' } });
-    if (qunitImports.size() > 0) {
-      // Iterate removed imports
-      removedQUnitImports.forEach(p => {
-        // Check if the imported name already exists
-        let foundSpecifier = qunitImports.find(j.ImportSpecifier, {
-          imported: { name: p.node.imported.name },
-        });
-        if (foundSpecifier.size() === 0) {
-          // Add the specifier being removed, if it wasn't already present
-          let specifier = j.importSpecifier(j.identifier(p.node.imported.name));
-          qunitImports.forEach(p => p.node.specifiers.push(specifier));
-        }
-      });
-    } else {
-      // Build up array of specifiers for the new import statement
-      let qunitImportSpecifiers = [];
-      removedQUnitImports.forEach(p => {
-        let specifier = j.importSpecifier(j.identifier(p.node.imported.name));
-        qunitImportSpecifiers.push(specifier);
-      });
+  let qunitImports = root.find(j.ImportDeclaration, { source: { value: 'qunit' } });
+  qunitImports.find(j.ImportSpecifier).forEach(p => specifiers.add(p.node.imported.name));
 
-      // Add new `import { ... } from 'qunit'` node
-      let newQUnitImport = j.importDeclaration(qunitImportSpecifiers, j.literal('qunit'));
-      emberQUnitImports.insertBefore(newQUnitImport);
-    }
-
-    removedQUnitImports.remove();
+  if (specifiers.size === 0) {
+    return;
   }
+
+  if (qunitImports.size() === 0) {
+    // Add new `import from 'qunit'` node
+    let newQUnitImport = j.importDeclaration([], j.literal('qunit'));
+    emberQUnitImports.insertBefore(newQUnitImport);
+    qunitImports = j(newQUnitImport);
+  }
+
+  qunitImports.get('specifiers').replace(
+    Array.from(specifiers)
+      .sort()
+      .map(s => j.importSpecifier(j.identifier(s)))
+  );
 }
 
 function updateToNewEmberQUnitImports(j, root) {
