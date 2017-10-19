@@ -71,14 +71,25 @@ function updateModuleForToNestedModule(j, root) {
     return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
   }
 
+  const LIFE_CYCLE_METHODS = [
+    { key: { name: 'before' }, value: { type: 'FunctionExpression' } },
+    { key: { name: 'beforeEach' }, value: { type: 'FunctionExpression' } },
+    { key: { name: 'afterEach' }, value: { type: 'FunctionExpression' } },
+    { key: { name: 'after' }, value: { type: 'FunctionExpression' } },
+  ];
+
+  function isLifecycleHook(nodePath) {
+    return LIFE_CYCLE_METHODS.some(matcher => j.match(nodePath, matcher));
+  }
+
   function createModule(p) {
     let calleeName = p.node.expression.callee.name;
     // Find the moduleName and the module's options
-    let moduleName;
+    let moduleName, options;
     let calleeArguments = p.node.expression.arguments.slice();
     let lastArgument = calleeArguments[calleeArguments.length - 1];
     if (lastArgument.type === 'ObjectExpression') {
-      calleeArguments.pop();
+      options = calleeArguments.pop();
     }
     moduleName = calleeArguments[1] || calleeArguments[0];
 
@@ -98,6 +109,25 @@ function updateModuleForToNestedModule(j, root) {
     let moduleInvocation = j.expressionStatement(
       j.callExpression(j.identifier('module'), [moduleName, callback])
     );
+
+    if (options) {
+      options.properties.forEach(property => {
+        if (isLifecycleHook(property)) {
+          // Use the lifecycle hook name as a fallback function name
+          property.value.id = property.value.id || property.key.name;
+          let lifecycleStatement = j.expressionStatement(
+            j.callExpression(j.memberExpression(j.identifier('hooks'), property.key), [
+              property.value,
+            ])
+          );
+
+          // preserve any comments that were present
+          lifecycleStatement.comments = property.comments;
+
+          callback.body.body.push(lifecycleStatement);
+        }
+      });
+    }
 
     return [moduleInvocation, callback.body.body];
   }
