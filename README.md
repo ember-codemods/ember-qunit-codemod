@@ -31,10 +31,3 @@ Credit
 ember-qunit-codemod is heavily inspired by the work done in [qunit-dom-codemod](https://github.com/simplabs/qunit-dom-codemod)
 and [ember-mocha-codemods](https://github.com/Turbo87/ember-mocha-codemods)
 largely by Tobias Bieniek. Thank you!
-
-License
-------------------------------------------------------------------------------
-
-qunit-dom is developed by and &copy;
-[simplabs GmbH](http://simplabs.com) and contributors. It is released under the
-[MIT License](https://github.com/simplabs/qunit-dom/blob/master/LICENSE.md).
