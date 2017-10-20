@@ -5,7 +5,7 @@ import hbs from 'htmlbars-inline-precompile';
 module('Integration | Component | FooBar', function(hooks) {
   setupRenderingTest(hooks);
 
-  test('it happens', function() {
+  test('it happens', async function() {
     this.render(hbs`derp`);
   });
 });

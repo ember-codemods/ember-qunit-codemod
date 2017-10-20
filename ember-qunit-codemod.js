@@ -150,22 +150,30 @@ function updateModuleForToNestedModule(j, root) {
       });
     }
 
-    return [moduleInvocation, callback.body.body];
+    return [moduleInvocation, callback.body.body, setupType];
   }
 
   let programPath = root.get('program');
   let bodyPath = programPath.get('body');
 
   let bodyReplacement = [];
-  let currentModuleCallbackBody;
+  let currentModuleCallbackBody, currentTestType;
   bodyPath.each(expressionPath => {
     let expression = expressionPath.node;
     if (isModuleDefinition(expressionPath)) {
       let result = createModule(expressionPath);
       bodyReplacement.push(result[0]);
       currentModuleCallbackBody = result[1];
+      currentTestType = result[2];
     } else if (currentModuleCallbackBody) {
       currentModuleCallbackBody.push(expression);
+
+      if (currentTestType === 'setupRenderingTest') {
+        let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
+        if (isTest) {
+          expression.expression.arguments[1].async = true;
+        }
+      }
     } else {
       bodyReplacement.push(expression);
     }
