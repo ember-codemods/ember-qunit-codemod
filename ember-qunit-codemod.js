@@ -224,14 +224,12 @@ function updateModuleForToNestedModule(j, root) {
 
 function updateLookupCalls(j, root) {
   return root
-    .find(j.MemberExpression)
-    .filter(path => {
-      return (
-        path.value.property.name === 'lookup' &&
-        j.MemberExpression.check(path.value.object) &&
-        path.value.object.property.name === 'container' &&
-        j.ThisExpression.check(path.value.object.object)
-      );
+    .find(j.MemberExpression, {
+      object: {
+        object: { type: 'ThisExpression' },
+        property: { name: 'container' },
+      },
+      property: { name: 'lookup' },
     })
     .forEach(path => {
       let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
