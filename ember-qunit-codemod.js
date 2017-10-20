@@ -177,18 +177,19 @@ function updateModuleForToNestedModule(j, root) {
     return [moduleInvocation, callback.body.body, setupType];
   }
 
-  function processRenderingTest(expression) {
-    let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
+  function processRenderingTest(testExpression) {
+    let isTest = j.match(testExpression, { expression: { callee: { name: 'test' } } });
     if (!isTest) {
       return;
     }
 
     // mark the test function as an async function
-    expression.expression.arguments[1].async = true;
+    testExpression.expression.arguments[1].async = true;
+    let testExpressionCollection = j(testExpression);
 
     // Transform to await render() or await clearRender()
     ['render', 'clearRender'].forEach(type => {
-      findTestHelperUsageOf(j, j(expression), type).forEach(p => {
+      findTestHelperUsageOf(j, testExpressionCollection, type).forEach(p => {
         let expression = p.get('expression');
 
         let awaitExpression = j.awaitExpression(
@@ -197,6 +198,21 @@ function updateModuleForToNestedModule(j, root) {
         expression.replace(awaitExpression);
       });
     });
+
+    // Migrate `this._element` -> `this.element`
+    testExpressionCollection
+      .find(j.MemberExpression, {
+        object: {
+          type: 'ThisExpression',
+        },
+        property: {
+          name: '_element',
+        },
+      })
+      .forEach(p => {
+        let property = p.get('property');
+        property.node.name = 'element';
+      });
   }
 
   let programPath = root.get('program');
