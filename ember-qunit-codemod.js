@@ -1,7 +1,8 @@
 module.exports = function(file, api, options) {
   const j = api.jscodeshift;
+  const root = j(file.source);
 
-  function moveQUnitImportsFromEmberQUnit(root) {
+  function moveQUnitImportsFromEmberQUnit() {
     let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
     // Find `module` and `test` imports
     let migrateToQUnitImport = ['module', 'test', 'skip', 'todo'];
@@ -35,7 +36,7 @@ module.exports = function(file, api, options) {
     );
   }
 
-  function updateToNewEmberQUnitImports(root) {
+  function updateToNewEmberQUnitImports() {
     let mapping = {
       moduleFor: 'setupTest',
       moduleForComponent: 'setupRenderingTest',
@@ -85,8 +86,8 @@ module.exports = function(file, api, options) {
       .replace(Array.from(specifiers).map(s => j.importSpecifier(j.identifier(s))));
   }
 
-  function findTestHelperUsageOf(root, property) {
-    return root.find(j.ExpressionStatement, {
+  function findTestHelperUsageOf(collection, property) {
+    return collection.find(j.ExpressionStatement, {
       expression: {
         callee: {
           object: {
@@ -123,7 +124,7 @@ module.exports = function(file, api, options) {
     return [moduleName, options, setupIdentifier];
   }
 
-  function updateModuleForToNestedModule(root) {
+  function updateModuleForToNestedModule() {
     const POSSIBLE_MODULES = [
       { expression: { callee: { name: 'moduleFor' } } },
       { expression: { callee: { name: 'moduleForComponent' } } },
@@ -244,7 +245,7 @@ module.exports = function(file, api, options) {
     bodyPath.replace(bodyReplacement);
   }
 
-  function updateLookupCalls(root) {
+  function updateLookupCalls() {
     root
       .find(j.MemberExpression, {
         object: {
@@ -259,7 +260,7 @@ module.exports = function(file, api, options) {
       });
   }
 
-  function updateRegisterCalls(root) {
+  function updateRegisterCalls() {
     root
       .find(j.MemberExpression, {
         object: {
@@ -284,7 +285,7 @@ module.exports = function(file, api, options) {
       });
   }
 
-  function updateInjectCalls(root) {
+  function updateInjectCalls() {
     root
       .find(j.CallExpression, {
         callee: {
@@ -327,7 +328,6 @@ module.exports = function(file, api, options) {
   }
 
   const printOptions = options.printOptions || { quote: 'single' };
-  const root = j(file.source);
 
   // Find `ember-qunit` imports
   let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
@@ -335,12 +335,12 @@ module.exports = function(file, api, options) {
     return file.source;
   }
 
-  moveQUnitImportsFromEmberQUnit(root);
-  updateToNewEmberQUnitImports(root);
-  updateModuleForToNestedModule(root);
-  updateLookupCalls(root);
-  updateRegisterCalls(root);
-  updateInjectCalls(root);
+  moveQUnitImportsFromEmberQUnit();
+  updateToNewEmberQUnitImports();
+  updateModuleForToNestedModule();
+  updateLookupCalls();
+  updateRegisterCalls();
+  updateInjectCalls();
 
   return root.toSource(printOptions);
 };
