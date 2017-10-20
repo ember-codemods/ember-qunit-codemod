@@ -14,6 +14,17 @@ test('it happens with comments', function() {
   this.render(hbs`derp`);
 });
 
+test('multiple renders', function() {
+  this.render(hbs`lololol`);
+
+  assert.ok(this.$().text(), 'lololol');
+
+  this.clearRender();
+  this.render(hbs`other stuff`);
+
+  assert.ok(this.$().text(), 'other stuff');
+});
+
 moduleForComponent('foo-bar', 'Unit | Component | FooBar', {
   needs: [],
 });

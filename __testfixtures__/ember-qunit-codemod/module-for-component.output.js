@@ -1,5 +1,5 @@
 import { module, test } from 'qunit';
-import { setupRenderingTest, setupTest, render } from 'ember-qunit';
+import { setupRenderingTest, setupTest, render, clearRender } from 'ember-qunit';
 import hbs from 'htmlbars-inline-precompile';
 
 module('Integration | Component | FooBar', function(hooks) {
@@ -12,6 +12,17 @@ module('Integration | Component | FooBar', function(hooks) {
   test('it happens with comments', async function() {
     // comments above this.render are preserved
     await render(hbs`derp`);
+  });
+
+  test('multiple renders', async function() {
+    await render(hbs`lololol`);
+
+    assert.ok(this.$().text(), 'lololol');
+
+    await clearRender();
+    await render(hbs`other stuff`);
+
+    assert.ok(this.$().text(), 'other stuff');
   });
 });
 
