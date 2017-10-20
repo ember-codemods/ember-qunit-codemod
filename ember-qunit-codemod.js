@@ -104,7 +104,7 @@ module.exports = function(file, api, options) {
   function parseModule(p) {
     let calleeName = p.node.expression.callee.name;
     // Find the moduleName and the module's options
-    let moduleName, options;
+    let moduleName, subject, options;
     let calleeArguments = p.node.expression.arguments.slice();
     let lastArgument = calleeArguments[calleeArguments.length - 1];
     if (lastArgument.type === 'ObjectExpression') {
@@ -113,15 +113,23 @@ module.exports = function(file, api, options) {
     moduleName = calleeArguments[1] || calleeArguments[0];
 
     let setupIdentifier = 'setupTest';
-    if (calleeName === `moduleForComponent` && options) {
+    if (options) {
       let hasIntegration = options.properties.some(p => p.key.name === 'integration');
 
-      if (hasIntegration) {
-        setupIdentifier = 'setupRenderingTest';
+      if (calleeName === `moduleForComponent`) {
+        if (hasIntegration) {
+          setupIdentifier = 'setupRenderingTest';
+        } else {
+          subject = j.literal(`component:${calleeArguments[0].value}`);
+        }
+      } else if (calleeName === 'moduleForModel') {
+        subject = j.literal(`model:${calleeArguments[0].value}`);
+      } else if (!hasIntegration) {
+        subject = calleeArguments[0];
       }
     }
 
-    return [moduleName, options, setupIdentifier];
+    return [moduleName, options, setupIdentifier, subject];
   }
 
   function updateModuleForToNestedModule() {
@@ -147,7 +155,7 @@ module.exports = function(file, api, options) {
     }
 
     function createModule(p) {
-      let [moduleName, options, setupType] = parseModule(p);
+      let [moduleName, options, setupType, subject] = parseModule(p);
 
       // Create the new `module(moduleName, function(hooks) {});` invocation
       let callback = j.functionExpression(
@@ -178,7 +186,7 @@ module.exports = function(file, api, options) {
         });
       }
 
-      return [moduleInvocation, callback.body.body, setupType];
+      return [moduleInvocation, callback.body.body, setupType, subject];
     }
 
     function processRenderingTest(testExpression) {
@@ -219,11 +227,65 @@ module.exports = function(file, api, options) {
         });
     }
 
+    function processSubject(testExpression, subject) {
+      let thisDotSubjectUsage = j(testExpression).find(j.CallExpression, {
+        callee: {
+          type: 'MemberExpression',
+          object: {
+            type: 'ThisExpression',
+          },
+          property: {
+            name: 'subject',
+          },
+        },
+      });
+
+      if (thisDotSubjectUsage.size() === 0) {
+        return;
+      }
+
+      thisDotSubjectUsage.forEach(p => {
+        let options = p.node.arguments[0];
+        let subjectType = subject.value.split(':')[0];
+        let isSingletonSubject = !['model', 'component'].includes(subjectType);
+
+        // if we don't have `options` and the type is a singleton type
+        // use `this.owner.lookup(subject)`
+        if (!options && isSingletonSubject) {
+          p.replace(
+            j.callExpression(
+              j.memberExpression(
+                j.memberExpression(j.thisExpression(), j.identifier('owner')),
+                j.identifier('lookup')
+              ),
+              [subject]
+            )
+          );
+        } else {
+          p.replace(
+            j.callExpression(
+              j.memberExpression(
+                j.callExpression(
+                  j.memberExpression(
+                    j.memberExpression(j.thisExpression(), j.identifier('owner')),
+                    j.identifier('factoryFor')
+                  ),
+                  [subject]
+                ),
+                j.identifier('create')
+              ),
+              [options].filter(Boolean)
+            )
+          );
+        }
+      });
+    }
+
     let programPath = root.get('program');
     let bodyPath = programPath.get('body');
 
     let bodyReplacement = [];
-    let currentModuleCallbackBody, currentTestType;
+    let currentModuleCallbackBody, currentTestType, currentSubject;
     bodyPath.each(expressionPath => {
       let expression = expressionPath.node;
       if (isModuleDefinition(expressionPath)) {
@@ -231,11 +293,14 @@ module.exports = function(file, api, options) {
         bodyReplacement.push(result[0]);
         currentModuleCallbackBody = result[1];
         currentTestType = result[2];
+        currentSubject = result[3];
       } else if (currentModuleCallbackBody) {
         currentModuleCallbackBody.push(expression);
 
         if (currentTestType === 'setupRenderingTest') {
           processRenderingTest(expression);
+        } else if (currentTestType === 'setupTest') {
+          processSubject(expression, currentSubject);
         }
       } else {
         bodyReplacement.push(expression);
