@@ -242,7 +242,7 @@ function updateModuleForToNestedModule(j, root) {
 }
 
 function updateLookupCalls(j, root) {
-  return root
+  root
     .find(j.MemberExpression, {
       object: {
         object: { type: 'ThisExpression' },
@@ -257,7 +257,20 @@ function updateLookupCalls(j, root) {
 }
 
 function updateRegisterCalls(j, root) {
-  return root
+  root
+    .find(j.MemberExpression, {
+      object: {
+        object: { type: 'ThisExpression' },
+        property: { name: 'registry' },
+      },
+      property: { name: 'register' },
+    })
+    .forEach(path => {
+      let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
+      path.replace(j.memberExpression(thisDotOwner, path.value.property));
+    });
+
+  root
     .find(j.MemberExpression, {
       object: { type: 'ThisExpression' },
       property: { name: 'register' },
