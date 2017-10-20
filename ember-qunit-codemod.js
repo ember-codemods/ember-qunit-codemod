@@ -281,6 +281,48 @@ function updateRegisterCalls(j, root) {
     });
 }
 
+function updateInjectCalls(j, root) {
+  root
+    .find(j.CallExpression, {
+      callee: {
+        type: 'MemberExpression',
+        object: {
+          object: {
+            type: 'ThisExpression',
+          },
+          property: {
+            name: 'inject',
+          },
+        },
+      },
+    })
+    .forEach(p => {
+      let injectType = p.node.callee.property.name;
+      let injectedName = p.node.arguments[0].value;
+      let localName = injectedName;
+      if (p.node.arguments[1]) {
+        let options = p.node.arguments[1];
+        let as = options.properties.find(property => property.key.name === 'as');
+        if (as) {
+          localName = as.value.value;
+        }
+      }
+      let assignment = j.assignmentExpression(
+        '=',
+        j.memberExpression(j.thisExpression(), j.identifier(localName)),
+        j.callExpression(
+          j.memberExpression(
+            j.memberExpression(j.thisExpression(), j.identifier('owner')),
+            j.identifier('lookup')
+          ),
+          [j.literal(`${injectType}:${injectedName}`)]
+        )
+      );
+
+      p.replace(assignment);
+    });
+}
+
 module.exports = function(file, api, options) {
   const j = api.jscodeshift;
 
@@ -298,6 +340,7 @@ module.exports = function(file, api, options) {
   updateModuleForToNestedModule(j, root);
   updateLookupCalls(j, root);
   updateRegisterCalls(j, root);
+  updateInjectCalls(j, root);
 
   return root.toSource(printOptions);
 };
