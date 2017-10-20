@@ -27,3 +27,31 @@ test('has some thing', function (assert) {
 test('has another thing', function (assert) {
   let subject = this.subject({ size: 'big' });
 });
+
+moduleForModel('foo', 'Integration | Model | Foo', {
+  integration: true
+});
+
+test('has some thing', function (assert) {
+  let subject = this.subject();
+});
+
+moduleForModel('foo', 'Unit | Model | Foo', {
+  needs: ['serializer:foo']
+});
+
+test('has some thing', function (assert) {
+  let subject = this.subject();
+});
+
+moduleForComponent('foo-bar', 'Unit | Component | FooBar', {
+  unit: true,
+});
+
+test('has some thing', function (assert) {
+  let subject = this.subject();
+});
+
+test('has another thing', function (assert) {
+  let subject = this.subject({ size: 'big' });
+});
