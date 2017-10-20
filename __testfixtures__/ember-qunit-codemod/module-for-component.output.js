@@ -9,9 +9,11 @@ module('Integration | Component | FooBar', function(hooks) {
     await render(hbs`derp`);
   });
 
-  test('it happens with comments', async function() {
+  test('it happens with comments', async function(assert) {
     // comments above this.render are preserved
     await render(hbs`derp`);
+
+    assert.equal(this.element.textContent, 'derp');
   });
 
   test('multiple renders', async function() {

@@ -9,9 +9,11 @@ test('it happens', function() {
   this.render(hbs`derp`);
 });
 
-test('it happens with comments', function() {
+test('it happens with comments', function(assert) {
   // comments above this.render are preserved
   this.render(hbs`derp`);
+
+  assert.equal(this._element.textContent, 'derp');
 });
 
 test('multiple renders', function() {
