@@ -256,6 +256,18 @@ function updateLookupCalls(j, root) {
     });
 }
 
+function updateRegisterCalls(j, root) {
+  return root
+    .find(j.MemberExpression, {
+      object: { type: 'ThisExpression' },
+      property: { name: 'register' },
+    })
+    .forEach(path => {
+      let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
+      path.replace(j.memberExpression(thisDotOwner, path.value.property));
+    });
+}
+
 module.exports = function(file, api, options) {
   const j = api.jscodeshift;
 
@@ -272,6 +284,7 @@ module.exports = function(file, api, options) {
   updateToNewEmberQUnitImports(j, root);
   updateModuleForToNestedModule(j, root);
   updateLookupCalls(j, root);
+  updateRegisterCalls(j, root);
 
   return root.toSource(printOptions);
 };
