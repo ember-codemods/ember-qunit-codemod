@@ -50,6 +50,8 @@ function updateToNewEmberQUnitImports(j, root) {
       let importName = p.node.imported.name;
       let mappedName = mapping[importName] || importName;
 
+      // If importName is `moduleForComponent` determine if we need
+      // `setupTest` (unit) or `setupRenderingTest` (integration)
       if (importName === 'moduleForComponent') {
         root
           .find(j.ExpressionStatement, {
@@ -68,9 +70,29 @@ function updateToNewEmberQUnitImports(j, root) {
     // Remove all existing import specifiers
     .remove();
 
+  let renderUsages = findRenderUsages(j, root);
+  if (renderUsages.size() > 0) {
+    specifiers.add('render');
+  }
+
   emberQUnitImports
     .get('specifiers')
     .replace(Array.from(specifiers).map(s => j.importSpecifier(j.identifier(s))));
+}
+
+function findRenderUsages(j, root) {
+  return root.find(j.ExpressionStatement, {
+    expression: {
+      callee: {
+        object: {
+          type: 'ThisExpression',
+        },
+        property: {
+          name: 'render',
+        },
+      },
+    },
+  });
 }
 
 function parseModule(j, p) {
@@ -162,22 +184,15 @@ function updateModuleForToNestedModule(j, root) {
     // mark the test function as an async function
     expression.expression.arguments[1].async = true;
 
-    let renderUsage = j(expression).find(j.ExpressionStatement, {
-      expression: {
-        callee: {
-          object: {
-            type: 'ThisExpression',
-          },
-          property: {
-            name: 'render',
-          },
-        },
-      },
-    });
+    let renderUsage = findRenderUsages(j, j(expression));
 
     renderUsage.forEach(p => {
       let expression = p.get('expression');
-      expression.replace(j.awaitExpression(expression.node));
+
+      let awaitExpression = j.awaitExpression(
+        j.callExpression(j.identifier('render'), expression.node.arguments)
+      );
+      expression.replace(awaitExpression);
     });
   }
 
