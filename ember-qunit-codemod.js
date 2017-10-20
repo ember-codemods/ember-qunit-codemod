@@ -222,6 +222,23 @@ function updateModuleForToNestedModule(j, root) {
   bodyPath.replace(bodyReplacement);
 }
 
+function updateLookupCalls(j, root) {
+  return root
+    .find(j.MemberExpression)
+    .filter(path => {
+      return (
+        path.value.property.name === 'lookup' &&
+        j.MemberExpression.check(path.value.object) &&
+        path.value.object.property.name === 'container' &&
+        j.ThisExpression.check(path.value.object.object)
+      );
+    })
+    .forEach(path => {
+      let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
+      path.replace(j.memberExpression(thisDotOwner, path.value.property));
+    });
+}
+
 module.exports = function(file, api, options) {
   const j = api.jscodeshift;
 
@@ -237,6 +254,7 @@ module.exports = function(file, api, options) {
   moveQUnitImportsFromEmberQUnit(j, root);
   updateToNewEmberQUnitImports(j, root);
   updateModuleForToNestedModule(j, root);
+  updateLookupCalls(j, root);
 
   return root.toSource(printOptions);
 };
