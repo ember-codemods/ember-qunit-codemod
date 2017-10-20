@@ -153,6 +153,34 @@ function updateModuleForToNestedModule(j, root) {
     return [moduleInvocation, callback.body.body, setupType];
   }
 
+  function processRenderingTest(expression) {
+    let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
+    if (!isTest) {
+      return;
+    }
+
+    // mark the test function as an async function
+    expression.expression.arguments[1].async = true;
+
+    let renderUsage = j(expression).find(j.ExpressionStatement, {
+      expression: {
+        callee: {
+          object: {
+            type: 'ThisExpression',
+          },
+          property: {
+            name: 'render',
+          },
+        },
+      },
+    });
+
+    renderUsage.forEach(p => {
+      let expression = p.get('expression');
+      expression.replace(j.awaitExpression(expression.node));
+    });
+  }
+
   let programPath = root.get('program');
   let bodyPath = programPath.get('body');
 
@@ -169,10 +197,7 @@ function updateModuleForToNestedModule(j, root) {
       currentModuleCallbackBody.push(expression);
 
       if (currentTestType === 'setupRenderingTest') {
-        let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
-        if (isTest) {
-          expression.expression.arguments[1].async = true;
-        }
+        processRenderingTest(expression);
       }
     } else {
       bodyReplacement.push(expression);

@@ -6,7 +6,7 @@ module('Integration | Component | FooBar', function(hooks) {
   setupRenderingTest(hooks);
 
   test('it happens', async function() {
-    this.render(hbs`derp`);
+    await this.render(hbs`derp`);
   });
 });
 
