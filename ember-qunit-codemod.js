@@ -242,13 +242,38 @@ function updateModuleForToNestedModule(j, root) {
 }
 
 function updateLookupCalls(j, root) {
-  return root
+  root
     .find(j.MemberExpression, {
       object: {
         object: { type: 'ThisExpression' },
         property: { name: 'container' },
       },
       property: { name: 'lookup' },
+    })
+    .forEach(path => {
+      let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
+      path.replace(j.memberExpression(thisDotOwner, path.value.property));
+    });
+}
+
+function updateRegisterCalls(j, root) {
+  root
+    .find(j.MemberExpression, {
+      object: {
+        object: { type: 'ThisExpression' },
+        property: { name: 'registry' },
+      },
+      property: { name: 'register' },
+    })
+    .forEach(path => {
+      let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
+      path.replace(j.memberExpression(thisDotOwner, path.value.property));
+    });
+
+  root
+    .find(j.MemberExpression, {
+      object: { type: 'ThisExpression' },
+      property: { name: 'register' },
     })
     .forEach(path => {
       let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
@@ -272,6 +297,7 @@ module.exports = function(file, api, options) {
   updateToNewEmberQUnitImports(j, root);
   updateModuleForToNestedModule(j, root);
   updateLookupCalls(j, root);
+  updateRegisterCalls(j, root);
 
   return root.toSource(printOptions);
 };
