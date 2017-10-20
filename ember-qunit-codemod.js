@@ -70,17 +70,19 @@ function updateToNewEmberQUnitImports(j, root) {
     // Remove all existing import specifiers
     .remove();
 
-  let renderUsages = findRenderUsages(j, root);
-  if (renderUsages.size() > 0) {
-    specifiers.add('render');
-  }
+  ['render', 'clearRender'].forEach(type => {
+    let usages = findTestHelperUsageOf(j, root, type);
+    if (usages.size() > 0) {
+      specifiers.add(type);
+    }
+  });
 
   emberQUnitImports
     .get('specifiers')
     .replace(Array.from(specifiers).map(s => j.importSpecifier(j.identifier(s))));
 }
 
-function findRenderUsages(j, root) {
+function findTestHelperUsageOf(j, root, property) {
   return root.find(j.ExpressionStatement, {
     expression: {
       callee: {
@@ -88,7 +90,7 @@ function findRenderUsages(j, root) {
           type: 'ThisExpression',
         },
         property: {
-          name: 'render',
+          name: property,
         },
       },
     },
@@ -184,15 +186,16 @@ function updateModuleForToNestedModule(j, root) {
     // mark the test function as an async function
     expression.expression.arguments[1].async = true;
 
-    let renderUsage = findRenderUsages(j, j(expression));
+    // Transform to await render() or await clearRender()
+    ['render', 'clearRender'].forEach(type => {
+      findTestHelperUsageOf(j, j(expression), type).forEach(p => {
+        let expression = p.get('expression');
 
-    renderUsage.forEach(p => {
-      let expression = p.get('expression');
-
-      let awaitExpression = j.awaitExpression(
-        j.callExpression(j.identifier('render'), expression.node.arguments)
-      );
-      expression.replace(awaitExpression);
+        let awaitExpression = j.awaitExpression(
+          j.callExpression(j.identifier(type), expression.node.arguments)
+        );
+        expression.replace(awaitExpression);
+      });
     });
   }
 
