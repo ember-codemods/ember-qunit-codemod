@@ -8,4 +8,9 @@ module('Unit | Service | FooBar', function(hooks) {
     this.foo = this.owner.lookup('service:foo');
     this.bar = this.owner.lookup('service:foo');
   });
+
+  test('it works for controllers', function(assert) {
+    this.foo = this.owner.lookup('controller:foo');
+    this.bar = this.owner.lookup('controller:foo');
+  });
 });

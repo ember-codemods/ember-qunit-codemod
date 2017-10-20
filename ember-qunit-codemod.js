@@ -285,6 +285,7 @@ function updateInjectCalls(j, root) {
   root
     .find(j.CallExpression, {
       callee: {
+        type: 'MemberExpression',
         object: {
           object: {
             type: 'ThisExpression',
@@ -293,13 +294,10 @@ function updateInjectCalls(j, root) {
             name: 'inject',
           },
         },
-        property: {
-          name: 'service',
-        },
       },
     })
     .forEach(p => {
-      let injectType = 'service';
+      let injectType = p.node.callee.property.name;
       let injectedName = p.node.arguments[0].value;
       let localName = injectedName;
       if (p.node.arguments[1]) {

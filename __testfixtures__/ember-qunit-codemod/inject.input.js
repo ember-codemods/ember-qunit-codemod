@@ -7,3 +7,8 @@ test('it exists', function(assert) {
   this.inject.service('foo');
   this.inject.service('foo', { as: 'bar' });
 }); 
+
+test('it works for controllers', function(assert) {
+  this.inject.controller('foo');
+  this.inject.controller('foo', { as: 'bar' });
+});
