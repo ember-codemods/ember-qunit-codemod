@@ -77,3 +77,9 @@ moduleFor('service:foo', 'Unit | Service | Foo', {
 test('can use service', function (assert) {
   this.service.something();
 });
+
+moduleFor('service:foo');
+
+test('does not require more than one argument', function(assert) {
+  let suject = this.subject();
+});

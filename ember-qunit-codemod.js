@@ -110,7 +110,7 @@ module.exports = function(file, api, options) {
     if (lastArgument.type === 'ObjectExpression') {
       options = calleeArguments.pop();
     }
-    moduleName = calleeArguments[1] || calleeArguments[0];
+    subject = moduleName = calleeArguments[1] || calleeArguments[0];
 
     let setupIdentifier = 'setupTest';
     if (options) {

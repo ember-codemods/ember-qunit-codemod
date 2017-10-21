@@ -82,3 +82,11 @@ module('Unit | Service | Foo', function(hooks) {
     this.service.something();
   });
 });
+
+module('service:foo', function(hooks) {
+  setupTest(hooks);
+
+  test('does not require more than one argument', function(assert) {
+    let subject = this.owner.factoryFor('component:foo-bar').create();
+  });
+});
