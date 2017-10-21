@@ -21,11 +21,11 @@ module('Unit | Model | Foo', function(hooks) {
   setupTest(hooks);
 
   test('has some thing', function (assert) {
-    let subject = this.owner.factoryFor('model:foo').create();
+    let subject = this.owner.lookup('service:store').createRecord('foo');
   });
 
   test('has another thing', function (assert) {
-    let subject = this.owner.factoryFor('model:foo').create({ size: 'big' });
+    let subject = this.owner.lookup('service:store').createRecord('foo', { size: 'big' });
   });
 });
 
@@ -33,7 +33,7 @@ module('Integration | Model | Foo', function(hooks) {
   setupTest(hooks);
 
   test('has some thing', function (assert) {
-    let subject = this.owner.factoryFor('model:foo').create();
+    let subject = this.owner.lookup('service:store').createRecord('foo');
   });
 });
 
@@ -41,7 +41,7 @@ module('Unit | Model | Foo', function(hooks) {
   setupTest(hooks);
 
   test('has some thing', function (assert) {
-    let subject = this.owner.factoryFor('model:foo').create();
+    let subject = this.owner.lookup('service:store').createRecord('foo');
   });
 });
 
