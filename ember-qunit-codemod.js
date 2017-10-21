@@ -176,7 +176,7 @@ module.exports = function(file, api, options) {
       );
 
       if (options) {
-        let customMethodBeforeEachBody;
+        let customMethodBeforeEachBody, customMethodBeforeEachExpression;
 
         options.properties.forEach(property => {
           if (isLifecycleHook(property)) {
@@ -188,13 +188,13 @@ module.exports = function(file, api, options) {
 
             // preserve any comments that were present
             lifecycleStatement.comments = property.comments;
+            processExpressionForRenderingTest(lifecycleStatement);
 
             callback.body.body.push(lifecycleStatement);
           } else if (isMethod(property)) {
             if (!customMethodBeforeEachBody) {
               customMethodBeforeEachBody = j.blockStatement([]);
-
-              let beforeEachInvocation = j.expressionStatement(
+              customMethodBeforeEachExpression = j.expressionStatement(
                 j.callExpression(
                   j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')),
                   [
@@ -209,7 +209,7 @@ module.exports = function(file, api, options) {
                 )
               );
 
-              callback.body.body.push(beforeEachInvocation);
+              callback.body.body.push(customMethodBeforeEachExpression);
             }
 
             let methodAssignment = j.expressionStatement(
@@ -226,19 +226,17 @@ module.exports = function(file, api, options) {
             customMethodBeforeEachBody.body.push(methodAssignment);
           }
         });
+
+        if (customMethodBeforeEachExpression) {
+          processExpressionForRenderingTest(customMethodBeforeEachExpression);
+        }
       }
 
       return [moduleInvocation, callback.body.body, setupType, subject, hasCustomSubject];
     }
 
-    function processRenderingTest(testExpression) {
-      let isTest = j.match(testExpression, { expression: { callee: { name: 'test' } } });
-      if (!isTest) {
-        return;
-      }
-
+    function processExpressionForRenderingTest(testExpression) {
       // mark the test function as an async function
-      testExpression.expression.arguments[1].async = true;
       let testExpressionCollection = j(testExpression);
 
       // Transform to await render() or await clearRender()
@@ -250,6 +248,7 @@ module.exports = function(file, api, options) {
             j.callExpression(j.identifier(type), expression.node.arguments)
           );
           expression.replace(awaitExpression);
+          p.scope.node.async = true;
         });
       });
 
@@ -356,8 +355,9 @@ module.exports = function(file, api, options) {
       } else if (currentModuleCallbackBody) {
         currentModuleCallbackBody.push(expression);
 
-        if (currentTestType === 'setupRenderingTest') {
-          processRenderingTest(expression);
+        let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
+        if (isTest && currentTestType === 'setupRenderingTest') {
+          processExpressionForRenderingTest(expression);
         } else if (currentTestType === 'setupTest' && !currentHasCustomSubject) {
           processSubject(expression, currentSubject);
         }
