@@ -452,6 +452,36 @@ module.exports = function(file, api, options) {
       });
   }
 
+  function updateGetOwnerThisUsage() {
+    let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
+
+    root
+      .find(j.CallExpression, {
+        callee: {
+          name: 'getOwner',
+        },
+      })
+      .forEach(path => {
+        path.replace(thisDotOwner);
+      });
+
+    root
+      .find(j.CallExpression, {
+        callee: {
+          type: 'MemberExpression',
+          object: {
+            name: 'Ember',
+          },
+          property: {
+            name: 'getOwner',
+          },
+        },
+      })
+      .forEach(path => {
+        path.replace(thisDotOwner);
+      });
+  }
+
   const printOptions = options.printOptions || { quote: 'single' };
 
   // Find `ember-qunit` imports
@@ -466,6 +496,7 @@ module.exports = function(file, api, options) {
   updateLookupCalls();
   updateRegisterCalls();
   updateInjectCalls();
+  updateGetOwnerThisUsage();
 
   return root.toSource(printOptions);
 };
