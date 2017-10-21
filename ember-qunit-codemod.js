@@ -145,6 +145,10 @@ module.exports = function(file, api, options) {
       return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
     }
 
+    function isMethod(nodePath) {
+      return j.match(nodePath, { value: { type: 'FunctionExpression' } });
+    }
+
     const LIFE_CYCLE_METHODS = [
       { key: { name: 'before' }, value: { type: 'FunctionExpression' } },
       { key: { name: 'beforeEach' }, value: { type: 'FunctionExpression' } },
@@ -172,6 +176,8 @@ module.exports = function(file, api, options) {
       );
 
       if (options) {
+        let customMethodBeforeEachBody;
+
         options.properties.forEach(property => {
           if (isLifecycleHook(property)) {
             let lifecycleStatement = j.expressionStatement(
@@ -184,6 +190,40 @@ module.exports = function(file, api, options) {
             lifecycleStatement.comments = property.comments;
 
             callback.body.body.push(lifecycleStatement);
+          } else if (isMethod(property)) {
+            if (!customMethodBeforeEachBody) {
+              customMethodBeforeEachBody = j.blockStatement([]);
+
+              let beforeEachInvocation = j.expressionStatement(
+                j.callExpression(
+                  j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')),
+                  [
+                    j.functionExpression(
+                      null,
+                      [
+                        /* no arguments */
+                      ],
+                      customMethodBeforeEachBody
+                    ),
+                  ]
+                )
+              );
+
+              callback.body.body.push(beforeEachInvocation);
+            }
+
+            let methodAssignment = j.expressionStatement(
+              j.assignmentExpression(
+                '=',
+                j.memberExpression(j.thisExpression(), property.key),
+                property.value
+              )
+            );
+
+            // preserve any comments that were present
+            methodAssignment.comments = property.comments;
+
+            customMethodBeforeEachBody.body.push(methodAssignment);
           }
         });
       }
