@@ -65,3 +65,15 @@ moduleFor('service:foo', {
 test('can use custom subject', function(assert) {
   let subject = this.subject();
 });
+
+moduleFor('service:foo', 'Unit | Service | Foo', {
+  unit: true,
+
+  beforeEach() {
+    this.service = this.subject();
+  }
+});
+
+test('can use service', function (assert) {
+  this.servicer.something();
+});

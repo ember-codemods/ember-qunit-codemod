@@ -70,3 +70,15 @@ module('service:foo', function(hooks) {
     let subject = this.subject();
   });
 });
+
+module('Unit | Service | Foo', function(hooks) {
+  setupTest(hooks);
+
+  hooks.beforeEach(function() {
+    this.service = this.owner.lookup('service:foo');
+  });
+
+  test('can use service', function (assert) {
+    this.servicer.something();
+  });
+});
