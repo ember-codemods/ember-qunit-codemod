@@ -75,5 +75,5 @@ moduleFor('service:foo', 'Unit | Service | Foo', {
 });
 
 test('can use service', function (assert) {
-  this.servicer.something();
+  this.service.something();
 });

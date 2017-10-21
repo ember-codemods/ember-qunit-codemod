@@ -79,6 +79,6 @@ module('Unit | Service | Foo', function(hooks) {
   });
 
   test('can use service', function (assert) {
-    this.servicer.something();
+    this.service.something();
   });
 });
