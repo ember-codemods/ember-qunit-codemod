@@ -46,3 +46,27 @@ test('it happens', function() {
 
 test('it happens over and over', function() {
 });
+
+moduleForComponent('foo-bar', 'Integration | Component | FooBar', {
+  integration: true,
+
+  beforeEach() {
+    this.render(hbs`derp`);
+  },
+});
+
+test('can make assertion', function (assert) {
+  assert.equal(this._element.textContent, 'derp');
+});
+
+moduleForComponent('foo-bar', 'Integration | Component | FooBar', {
+  integration: true,
+
+  foo() {
+    this.render(hbs`derp`);
+  },
+});
+
+test('can use render in custom method', function (assert) {
+  assert.equal(this._element.textContent, 'derp');
+});
