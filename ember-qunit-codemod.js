@@ -104,7 +104,7 @@ module.exports = function(file, api, options) {
   function parseModule(p) {
     let calleeName = p.node.expression.callee.name;
     // Find the moduleName and the module's options
-    let moduleName, subject, options;
+    let moduleName, subject, options, hasCustomSubject;
     let calleeArguments = p.node.expression.arguments.slice();
     let lastArgument = calleeArguments[calleeArguments.length - 1];
     if (lastArgument.type === 'ObjectExpression') {
@@ -127,9 +127,11 @@ module.exports = function(file, api, options) {
       } else if (!hasIntegration) {
         subject = calleeArguments[0];
       }
+
+      hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
     }
 
-    return [moduleName, options, setupIdentifier, subject];
+    return [moduleName, options, setupIdentifier, subject, hasCustomSubject];
   }
 
   function updateModuleForToNestedModule() {
@@ -141,6 +143,10 @@ module.exports = function(file, api, options) {
 
     function isModuleDefinition(nodePath) {
       return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
+    }
+
+    function isMethod(nodePath) {
+      return j.match(nodePath, { value: { type: 'FunctionExpression' } });
     }
 
     const LIFE_CYCLE_METHODS = [
@@ -155,7 +161,7 @@ module.exports = function(file, api, options) {
     }
 
     function createModule(p) {
-      let [moduleName, options, setupType, subject] = parseModule(p);
+      let [moduleName, options, setupType, subject, hasCustomSubject] = parseModule(p);
 
       // Create the new `module(moduleName, function(hooks) {});` invocation
       let callback = j.functionExpression(
@@ -170,6 +176,8 @@ module.exports = function(file, api, options) {
       );
 
       if (options) {
+        let customMethodBeforeEachBody;
+
         options.properties.forEach(property => {
           if (isLifecycleHook(property)) {
             let lifecycleStatement = j.expressionStatement(
@@ -182,11 +190,45 @@ module.exports = function(file, api, options) {
             lifecycleStatement.comments = property.comments;
 
             callback.body.body.push(lifecycleStatement);
+          } else if (isMethod(property)) {
+            if (!customMethodBeforeEachBody) {
+              customMethodBeforeEachBody = j.blockStatement([]);
+
+              let beforeEachInvocation = j.expressionStatement(
+                j.callExpression(
+                  j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')),
+                  [
+                    j.functionExpression(
+                      null,
+                      [
+                        /* no arguments */
+                      ],
+                      customMethodBeforeEachBody
+                    ),
+                  ]
+                )
+              );
+
+              callback.body.body.push(beforeEachInvocation);
+            }
+
+            let methodAssignment = j.expressionStatement(
+              j.assignmentExpression(
+                '=',
+                j.memberExpression(j.thisExpression(), property.key),
+                property.value
+              )
+            );
+
+            // preserve any comments that were present
+            methodAssignment.comments = property.comments;
+
+            customMethodBeforeEachBody.body.push(methodAssignment);
           }
         });
       }
 
-      return [moduleInvocation, callback.body.body, setupType, subject];
+      return [moduleInvocation, callback.body.body, setupType, subject, hasCustomSubject];
     }
 
     function processRenderingTest(testExpression) {
@@ -301,7 +343,7 @@ module.exports = function(file, api, options) {
     let bodyPath = programPath.get('body');
 
     let bodyReplacement = [];
-    let currentModuleCallbackBody, currentTestType, currentSubject;
+    let currentModuleCallbackBody, currentTestType, currentSubject, currentHasCustomSubject;
     bodyPath.each(expressionPath => {
       let expression = expressionPath.node;
       if (isModuleDefinition(expressionPath)) {
@@ -310,12 +352,13 @@ module.exports = function(file, api, options) {
         currentModuleCallbackBody = result[1];
         currentTestType = result[2];
         currentSubject = result[3];
+        currentHasCustomSubject = result[4];
       } else if (currentModuleCallbackBody) {
         currentModuleCallbackBody.push(expression);
 
         if (currentTestType === 'setupRenderingTest') {
           processRenderingTest(expression);
-        } else if (currentTestType === 'setupTest') {
+        } else if (currentTestType === 'setupTest' && !currentHasCustomSubject) {
           processSubject(expression, currentSubject);
         }
       } else {

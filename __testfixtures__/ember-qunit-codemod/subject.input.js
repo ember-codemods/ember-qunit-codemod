@@ -55,3 +55,13 @@ test('has some thing', function (assert) {
 test('has another thing', function (assert) {
   let subject = this.subject({ size: 'big' });
 });
+
+moduleFor('service:foo', {
+  subject() {
+    return derp();
+  }
+});
+
+test('can use custom subject', function(assert) {
+  let subject = this.subject();
+});
