@@ -56,3 +56,17 @@ module('Unit | Component | FooBar', function(hooks) {
     let subject = this.owner.factoryFor('component:foo-bar').create({ size: 'big' });
   });
 });
+
+module('service:foo', function(hooks) {
+  setupTest(hooks);
+
+  hooks.beforeEach(function() {
+    this.subject = function() {
+      return derp();
+    };
+  });
+
+  test('can use custom subject', function(assert) {
+    let subject = this.subject();
+  });
+});
