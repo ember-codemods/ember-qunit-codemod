@@ -77,3 +77,17 @@ moduleFor('service:foo', 'Unit | Service | Foo', {
 test('can use service', function (assert) {
   this.service.something();
 });
+
+moduleFor('service:foo');
+
+test('does not require more than one argument', function(assert) {
+  let subject = this.subject();
+});
+
+moduleFor('service:foo', {
+  integration: true
+});
+
+test('can use subject in moduleFor + integration: true', function(assert) {
+  let subject = this.subject();
+});
