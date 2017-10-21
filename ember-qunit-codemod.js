@@ -188,7 +188,6 @@ module.exports = function(file, api, options) {
 
             // preserve any comments that were present
             lifecycleStatement.comments = property.comments;
-            processExpressionForRenderingTest(lifecycleStatement);
 
             callback.body.body.push(lifecycleStatement);
           } else if (isMethod(property)) {
@@ -227,8 +226,10 @@ module.exports = function(file, api, options) {
           }
         });
 
-        if (customMethodBeforeEachExpression) {
-          processExpressionForRenderingTest(customMethodBeforeEachExpression);
+        if (setupType === 'setupRenderingTest') {
+          processExpressionForRenderingTest(callback);
+        } else {
+          processSubject(callback, subject);
         }
       }
 
