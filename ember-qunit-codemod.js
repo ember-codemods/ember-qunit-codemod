@@ -246,7 +246,7 @@ module.exports = function(file, api, options) {
 
       thisDotSubjectUsage.forEach(p => {
         let options = p.node.arguments[0];
-        let subjectType = subject.value.split(':')[0];
+        let [subjectType, subjectName] = subject.value.split(':');
         let isSingletonSubject = !['model', 'component'].includes(subjectType);
 
         // if we don't have `options` and the type is a singleton type
@@ -259,6 +259,22 @@ module.exports = function(file, api, options) {
                 j.identifier('lookup')
               ),
               [subject]
+            )
+          );
+        } else if (subjectType === 'model') {
+          p.replace(
+            j.callExpression(
+              j.memberExpression(
+                j.callExpression(
+                  j.memberExpression(
+                    j.memberExpression(j.thisExpression(), j.identifier('owner')),
+                    j.identifier('lookup')
+                  ),
+                  [j.literal('service:store')]
+                ),
+                j.identifier('createRecord')
+              ),
+              [j.literal(subjectName), options].filter(Boolean)
             )
           );
         } else {
