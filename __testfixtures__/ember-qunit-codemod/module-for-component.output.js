@@ -47,3 +47,29 @@ module('Unit | Component | FooBar', function(hooks) {
   test('it happens over and over', function() {
   });
 });
+
+module('Integration | Component | FooBar', function(hooks) {
+  setupRenderingTest(hooks);
+
+  hooks.beforeEach(async function() {
+    await render(hbs`derp`);
+  });
+
+  test('can make assertion', function (assert) {
+    assert.equal(this.element.textContent, 'derp');
+  });
+});
+
+module('Integration | Component | FooBar', function(hooks) {
+  setupRenderingTest(hooks);
+
+  hooks.beforeEach(function() {
+    this.foo = async function() {
+      await render(hbs`derp`);
+    };
+  });
+
+  test('can use render in custom method', function (assert) {
+    assert.equal(this.element.textContent, 'derp');
+  });
+});
