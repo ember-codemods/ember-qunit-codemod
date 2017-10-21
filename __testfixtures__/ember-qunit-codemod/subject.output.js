@@ -87,6 +87,14 @@ module('service:foo', function(hooks) {
   setupTest(hooks);
 
   test('does not require more than one argument', function(assert) {
-    let subject = this.owner.factoryFor('component:foo-bar').create();
+    let subject = this.owner.lookup('service:foo');
+  });
+});
+
+module('service:foo', function(hooks) {
+  setupTest(hooks);
+
+  test('can use subject in moduleFor + integration: true', function(assert) {
+    let subject = this.owner.lookup('service:foo');
   });
 });

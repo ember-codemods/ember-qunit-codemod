@@ -110,7 +110,8 @@ module.exports = function(file, api, options) {
     if (lastArgument.type === 'ObjectExpression') {
       options = calleeArguments.pop();
     }
-    subject = moduleName = calleeArguments[1] || calleeArguments[0];
+    moduleName = calleeArguments[1] || calleeArguments[0];
+    subject = calleeArguments[0];
 
     let setupIdentifier = 'setupTest';
     if (options) {
@@ -119,13 +120,12 @@ module.exports = function(file, api, options) {
       if (calleeName === `moduleForComponent`) {
         if (hasIntegration) {
           setupIdentifier = 'setupRenderingTest';
+          subject = null;
         } else {
           subject = j.literal(`component:${calleeArguments[0].value}`);
         }
       } else if (calleeName === 'moduleForModel') {
         subject = j.literal(`model:${calleeArguments[0].value}`);
-      } else if (!hasIntegration) {
-        subject = calleeArguments[0];
       }
 
       hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
