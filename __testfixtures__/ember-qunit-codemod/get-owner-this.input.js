@@ -1,3 +1,4 @@
+import Service from '@ember/service';
 import { moduleFor, test } from 'ember-qunit';
 
 moduleFor('service:flash', 'Unit | Service | Flash', {
@@ -25,4 +26,29 @@ moduleFor('service:flash', 'Unit | Service | Flash', {
 
 test('can use Ember.getOwner(this) also', function (assert) {
   let owner = Ember.getOwner(this);
+});
+
+test('objects registered can continue to use `getOwner(this)`', function(assert) {
+  this.register('service:foo', Service.extend({
+    someMethod() {
+      let owner = getOwner(this);
+      return owner.lookup('other:thing').someMethod();
+    }
+  }));
+});
+
+moduleFor('service:flash', {
+  beforeEach() {
+    this.blah = getOwner(this).lookup('service:blah');
+    this.register('service:foo', Service.extend({
+      someMethod() {
+        let owner = getOwner(this);
+        return owner.lookup('other:thing').someMethod();
+      }
+    }));
+  }
+});
+
+test('can use getOwner(this) in beforeEach for each context', function (assert) {
+  // stuff
 });
