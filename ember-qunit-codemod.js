@@ -179,6 +179,8 @@ module.exports = function(file, api, options) {
         let customMethodBeforeEachBody, customMethodBeforeEachExpression;
 
         options.properties.forEach(property => {
+          updateGetOwnerThisUsage(property.value);
+
           if (isLifecycleHook(property)) {
             let lifecycleStatement = j.expressionStatement(
               j.callExpression(j.memberExpression(j.identifier('hooks'), property.key), [
@@ -357,10 +359,13 @@ module.exports = function(file, api, options) {
         currentModuleCallbackBody.push(expression);
 
         let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
-        if (isTest && currentTestType === 'setupRenderingTest') {
-          processExpressionForRenderingTest(expression);
-        } else if (currentTestType === 'setupTest' && !currentHasCustomSubject) {
-          processSubject(expression, currentSubject);
+        if (isTest) {
+          updateGetOwnerThisUsage(expression.expression.arguments[1]);
+          if (currentTestType === 'setupRenderingTest') {
+            processExpressionForRenderingTest(expression);
+          } else if (currentTestType === 'setupTest' && !currentHasCustomSubject) {
+            processSubject(expression, currentSubject);
+          }
         }
       } else {
         bodyReplacement.push(expression);
@@ -452,20 +457,25 @@ module.exports = function(file, api, options) {
       });
   }
 
-  function updateGetOwnerThisUsage() {
+  function updateGetOwnerThisUsage(expression) {
+    let expressionCollection = j(expression);
     let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
 
-    root
+    function replacement(path) {
+      if (path.scope.node === expression) {
+        path.replace(thisDotOwner);
+      }
+    }
+
+    expressionCollection
       .find(j.CallExpression, {
         callee: {
           name: 'getOwner',
         },
       })
-      .forEach(path => {
-        path.replace(thisDotOwner);
-      });
+      .forEach(replacement);
 
-    root
+    expressionCollection
       .find(j.CallExpression, {
         callee: {
           type: 'MemberExpression',
@@ -477,9 +487,7 @@ module.exports = function(file, api, options) {
           },
         },
       })
-      .forEach(path => {
-        path.replace(thisDotOwner);
-      });
+      .forEach(replacement);
   }
 
   const printOptions = options.printOptions || { quote: 'single' };
@@ -496,7 +504,6 @@ module.exports = function(file, api, options) {
   updateLookupCalls();
   updateRegisterCalls();
   updateInjectCalls();
-  updateGetOwnerThisUsage();
 
   return root.toSource(printOptions);
 };
