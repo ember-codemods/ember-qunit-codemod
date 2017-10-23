@@ -1,5 +1,6 @@
 import { module, test } from 'qunit';
-import { setupRenderingTest, setupTest, render, clearRender } from 'ember-qunit';
+import { setupRenderingTest, setupTest } from 'ember-qunit';
+import { clearRender, render } from 'ember-test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 module('Integration | Component | FooBar', function(hooks) {
