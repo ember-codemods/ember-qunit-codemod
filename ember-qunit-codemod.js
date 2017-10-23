@@ -2,6 +2,28 @@ module.exports = function(file, api, options) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
+  function ensureImport(source, anchor, method = 'insertAfter') {
+    let desiredImport = root.find(j.ImportDeclaration, { source: { value: source } });
+    if (desiredImport.size() > 0) {
+      return desiredImport;
+    }
+
+    let newImport = j.importDeclaration([], j.literal(source));
+    let anchorImport = root.find(j.ImportDeclaration, { source: { value: anchor } });
+    let imports = root.find(j.ImportDeclaration);
+    if (anchorImport.size() > 0) {
+      anchorImport[method](newImport);
+    } else if (imports.size() > 0) {
+      // if anchor is not present, always add at the end
+      imports.insertAfter(newImport);
+    } else {
+      // if no imports are present, add as first statement
+      root.get().node.program.body.unshift(newImport);
+    }
+
+    return j(newImport);
+  }
+
   function moveQUnitImportsFromEmberQUnit() {
     let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
     // Find `module` and `test` imports
@@ -15,19 +37,12 @@ module.exports = function(file, api, options) {
       .forEach(p => specifiers.add(p.node.imported.name))
       .remove();
 
-    let qunitImports = root.find(j.ImportDeclaration, { source: { value: 'qunit' } });
-    qunitImports.find(j.ImportSpecifier).forEach(p => specifiers.add(p.node.imported.name));
-
     if (specifiers.size === 0) {
       return;
     }
 
-    if (qunitImports.size() === 0) {
-      // Add new `import from 'qunit'` node
-      let newQUnitImport = j.importDeclaration([], j.literal('qunit'));
-      emberQUnitImports.insertBefore(newQUnitImport);
-      qunitImports = j(newQUnitImport);
-    }
+    let qunitImports = ensureImport('qunit', 'ember-qunit', 'insertBefore');
+    qunitImports.find(j.ImportSpecifier).forEach(p => specifiers.add(p.node.imported.name));
 
     qunitImports.get('specifiers').replace(
       Array.from(specifiers)
@@ -93,6 +108,14 @@ module.exports = function(file, api, options) {
       }
     });
 
+    root
+      .find(j.ImportDeclaration, { source: { value: 'ember-test-helpers/wait' } })
+      .forEach(p => {
+        specifiers.add('settled');
+        return p;
+      })
+      .remove();
+
     if (specifiers.size > 0) {
       if (emberTestHelpersImport.size() > 0) {
         // collect existing imports
@@ -102,13 +125,7 @@ module.exports = function(file, api, options) {
           .remove();
       } else {
         // Add new `import from 'ember-test-helpers'` node
-        root
-          .find(j.ImportDeclaration, { source: { value: 'ember-qunit' } })
-          .insertAfter(j.importDeclaration([], j.literal('ember-test-helpers')));
-
-        emberTestHelpersImport = root.find(j.ImportDeclaration, {
-          source: { value: 'ember-test-helpers' },
-        });
+        emberTestHelpersImport = ensureImport('ember-test-helpers', 'ember-qunit');
       }
 
       emberTestHelpersImport.get('specifiers').replace(
@@ -523,21 +540,27 @@ module.exports = function(file, api, options) {
       .forEach(replacement);
   }
 
-  const printOptions = options.printOptions || { quote: 'single' };
-
-  // Find `ember-qunit` imports
-  let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
-  if (emberQUnitImports.size() === 0) {
-    return file.source;
+  function updateWaitCalls() {
+    root.find(j.CallExpression, { callee: { name: 'wait' } }).forEach(p => {
+      p.node.callee.name = 'settled';
+    });
   }
 
-  moveQUnitImportsFromEmberQUnit();
-  updateToNewEmberQUnitImports();
-  updateEmberTestHelperImports();
-  updateModuleForToNestedModule();
-  updateLookupCalls();
-  updateRegisterCalls();
-  updateInjectCalls();
+  const printOptions = options.printOptions || { quote: 'single' };
+
+  let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
+  if (emberQUnitImports.size() > 0) {
+    moveQUnitImportsFromEmberQUnit();
+    updateToNewEmberQUnitImports();
+    updateEmberTestHelperImports();
+    updateModuleForToNestedModule();
+    updateLookupCalls();
+    updateRegisterCalls();
+    updateInjectCalls();
+  } else {
+    updateEmberTestHelperImports();
+    updateWaitCalls();
+  }
 
   return root.toSource(printOptions);
 };
