@@ -46,7 +46,8 @@ module.exports = function(file, api, options) {
     let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
 
     // Collect all imports from ember-qunit into local array
-    let specifiers = new Set();
+    let emberQUnitSpecifiers = new Set();
+
     emberQUnitImports
       .find(j.ImportSpecifier)
       .forEach(p => {
@@ -65,14 +66,25 @@ module.exports = function(file, api, options) {
             })
             .forEach(p => {
               let [, , setupType] = parseModule(p);
-              specifiers.add(setupType);
+              emberQUnitSpecifiers.add(setupType);
             });
         } else {
-          specifiers.add(mappedName);
+          emberQUnitSpecifiers.add(mappedName);
         }
       })
       // Remove all existing import specifiers
       .remove();
+
+    emberQUnitImports
+      .get('specifiers')
+      .replace(Array.from(emberQUnitSpecifiers).map(s => j.importSpecifier(j.identifier(s))));
+  }
+
+  function updateEmberTestHelperImports() {
+    let specifiers = new Set();
+    let emberTestHelpersImport = root.find(j.ImportDeclaration, {
+      source: { value: 'ember-test-helpers' },
+    });
 
     ['render', 'clearRender'].forEach(type => {
       let usages = findTestHelperUsageOf(root, type);
@@ -81,9 +93,30 @@ module.exports = function(file, api, options) {
       }
     });
 
-    emberQUnitImports
-      .get('specifiers')
-      .replace(Array.from(specifiers).map(s => j.importSpecifier(j.identifier(s))));
+    if (specifiers.size > 0) {
+      if (emberTestHelpersImport.size() > 0) {
+        // collect existing imports
+        emberTestHelpersImport
+          .find(j.ImportSpecifier)
+          .forEach(p => specifiers.add(p.node.imported.name))
+          .remove();
+      } else {
+        // Add new `import from 'ember-test-helpers'` node
+        root
+          .find(j.ImportDeclaration, { source: { value: 'ember-qunit' } })
+          .insertAfter(j.importDeclaration([], j.literal('ember-test-helpers')));
+
+        emberTestHelpersImport = root.find(j.ImportDeclaration, {
+          source: { value: 'ember-test-helpers' },
+        });
+      }
+
+      emberTestHelpersImport.get('specifiers').replace(
+        Array.from(specifiers)
+          .sort()
+          .map(s => j.importSpecifier(j.identifier(s)))
+      );
+    }
   }
 
   function findTestHelperUsageOf(collection, property) {
@@ -500,6 +533,7 @@ module.exports = function(file, api, options) {
 
   moveQUnitImportsFromEmberQUnit();
   updateToNewEmberQUnitImports();
+  updateEmberTestHelperImports();
   updateModuleForToNestedModule();
   updateLookupCalls();
   updateRegisterCalls();
