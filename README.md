@@ -23,7 +23,7 @@ Usage
 ------------------------------------------------------------------------------
 
 ```
-jscodeshift -t https://raw.githubusercontent.com/rwjblue/ember-qunit-codemod/master/ember-qunit-codemod.js PATH
+jscodeshift -t https://rawgit.com/rwjblue/ember-qunit-codemod/master/ember-qunit-codemod.js ./tests/
 ```
 
 Credit
