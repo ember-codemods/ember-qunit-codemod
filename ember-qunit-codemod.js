@@ -491,9 +491,16 @@ module.exports = function(file, api, options) {
             localName = as.value.value;
           }
         }
+        let property = j.identifier(localName);
+        // rudimentary attempt to confirm the property name is valid
+        // as `this.propertyName`
+        if (!localName.match(/^[a-zA-Z_][a-zA-Z0-9]+$/)) {
+          // if not, use `this['property-name']`
+          property = j.literal(localName);
+        }
         let assignment = j.assignmentExpression(
           '=',
-          j.memberExpression(j.thisExpression(), j.identifier(localName)),
+          j.memberExpression(j.thisExpression(), property),
           j.callExpression(
             j.memberExpression(
               j.memberExpression(j.thisExpression(), j.identifier('owner')),

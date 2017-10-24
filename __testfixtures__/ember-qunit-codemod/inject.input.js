@@ -12,3 +12,7 @@ test('it works for controllers', function(assert) {
   this.inject.controller('foo');
   this.inject.controller('foo', { as: 'bar' });
 });
+
+test('handles dasherized names', function(assert) {
+  this.inject.service('foo-bar');
+});
