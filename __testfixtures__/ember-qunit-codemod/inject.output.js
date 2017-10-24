@@ -13,4 +13,8 @@ module('Unit | Service | FooBar', function(hooks) {
     this.foo = this.owner.lookup('controller:foo');
     this.bar = this.owner.lookup('controller:foo');
   });
+
+  test('handles dasherized names', function(assert) {
+    this['foo-bar'] = this.owner.lookup('service:foo-bar');
+  });
 });
