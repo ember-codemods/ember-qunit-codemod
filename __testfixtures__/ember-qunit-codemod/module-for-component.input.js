@@ -1,4 +1,5 @@
 import { moduleForComponent, test } from 'ember-qunit';
+import wait from 'ember-test-helpers/wait';
 import hbs from 'htmlbars-inline-precompile';
 
 moduleForComponent('foo-bar', 'Integration | Component | FooBar', {
@@ -68,5 +69,7 @@ moduleForComponent('foo-bar', 'Integration | Component | FooBar', {
 });
 
 test('can use render in custom method', function (assert) {
-  assert.equal(this._element.textContent, 'derp');
+  return wait().then(() => {
+    assert.equal(this._element.textContent, 'derp');
+  });
 });

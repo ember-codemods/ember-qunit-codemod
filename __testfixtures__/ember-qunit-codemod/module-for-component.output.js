@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupRenderingTest, setupTest } from 'ember-qunit';
-import { clearRender, render } from 'ember-test-helpers';
+import { clearRender, render, settled } from 'ember-test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 
 module('Integration | Component | FooBar', function(hooks) {
@@ -71,6 +71,8 @@ module('Integration | Component | FooBar', function(hooks) {
   });
 
   test('can use render in custom method', function (assert) {
-    assert.equal(this.element.textContent, 'derp');
+    return settled().then(() => {
+      assert.equal(this.element.textContent, 'derp');
+    });
   });
 });
