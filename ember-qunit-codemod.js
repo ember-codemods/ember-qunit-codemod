@@ -119,14 +119,6 @@ module.exports = function(file, api, options) {
       }
     });
 
-    root
-      .find(j.ImportDeclaration, { source: { value: 'ember-test-helpers/wait' } })
-      .forEach(p => {
-        specifiers.add('settled');
-        return p;
-      })
-      .remove();
-
     if (specifiers.size > 0) {
       ensureImportWithSpecifiers({
         source: 'ember-test-helpers',
@@ -548,10 +540,27 @@ module.exports = function(file, api, options) {
       .forEach(replacement);
   }
 
-  function updateWaitCalls() {
-    root.find(j.CallExpression, { callee: { name: 'wait' } }).forEach(p => {
-      p.node.callee.name = 'settled';
+  function updateWaitUsage() {
+    let waitImport = root.find(j.ImportDeclaration, {
+      source: { value: 'ember-test-helpers/wait' },
     });
+
+    if (waitImport.size() > 0) {
+      let importedName;
+
+      ensureImportWithSpecifiers({
+        source: 'ember-test-helpers',
+        anchor: 'ember-qunit',
+        specifiers: ['settled'],
+      });
+
+      waitImport.find(j.ImportDefaultSpecifier).forEach(p => (importedName = p.node.local.name));
+      waitImport.remove();
+
+      root.find(j.CallExpression, { callee: { name: importedName } }).forEach(p => {
+        p.node.callee.name = 'settled';
+      });
+    }
   }
 
   const printOptions = options.printOptions || { quote: 'single' };
@@ -567,8 +576,9 @@ module.exports = function(file, api, options) {
     updateInjectCalls();
   } else {
     updateEmberTestHelperImports();
-    updateWaitCalls();
   }
+
+  updateWaitUsage();
 
   return root.toSource(printOptions);
 };
