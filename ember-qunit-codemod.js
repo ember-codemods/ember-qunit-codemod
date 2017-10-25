@@ -45,7 +45,7 @@ module.exports = function(file, api, options) {
     // Find `module` and `test` imports
     let migrateToQUnitImport = ['module', 'test', 'skip', 'todo'];
 
-    let specifiers = new Set(['module']);
+    let specifiers = new Set();
     // Replace old with new test helpers imports
     emberQUnitImports
       .find(j.ImportSpecifier)
@@ -83,6 +83,15 @@ module.exports = function(file, api, options) {
         // Map them to the new imports
         let importName = p.node.imported.name;
         let mappedName = mapping[importName] || importName;
+
+        if (mappedName !== importName) {
+          ensureImportWithSpecifiers({
+            source: 'qunit',
+            anchor: 'ember-qunit',
+            positionMethod: 'insertBefore',
+            specifiers: ['module'],
+          });
+        }
 
         // If importName is `moduleForComponent` determine if we need
         // `setupTest` (unit) or `setupRenderingTest` (integration)
