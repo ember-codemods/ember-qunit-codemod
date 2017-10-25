@@ -2,6 +2,22 @@ module.exports = function(file, api, options) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
+  function ensureImportWithSpecifiers({ source, specifiers, anchor, positionMethod }) {
+    let importStatement = ensureImport(source, anchor, positionMethod);
+    let combinedSpecifiers = new Set(specifiers);
+
+    importStatement
+      .find(j.ImportSpecifier)
+      .forEach(i => combinedSpecifiers.add(i.node.imported.name))
+      .remove();
+
+    importStatement.get('specifiers').replace(
+      Array.from(combinedSpecifiers)
+        .sort()
+        .map(s => j.importSpecifier(j.identifier(s)))
+    );
+  }
+
   function ensureImport(source, anchor, method = 'insertAfter') {
     let desiredImport = root.find(j.ImportDeclaration, { source: { value: source } });
     if (desiredImport.size() > 0) {
@@ -41,14 +57,12 @@ module.exports = function(file, api, options) {
       return;
     }
 
-    let qunitImports = ensureImport('qunit', 'ember-qunit', 'insertBefore');
-    qunitImports.find(j.ImportSpecifier).forEach(p => specifiers.add(p.node.imported.name));
-
-    qunitImports.get('specifiers').replace(
-      Array.from(specifiers)
-        .sort()
-        .map(s => j.importSpecifier(j.identifier(s)))
-    );
+    ensureImportWithSpecifiers({
+      source: 'qunit',
+      anchor: 'ember-qunit',
+      positionMethod: 'insertBefore',
+      specifiers,
+    });
   }
 
   function updateToNewEmberQUnitImports() {
@@ -97,9 +111,6 @@ module.exports = function(file, api, options) {
 
   function updateEmberTestHelperImports() {
     let specifiers = new Set();
-    let emberTestHelpersImport = root.find(j.ImportDeclaration, {
-      source: { value: 'ember-test-helpers' },
-    });
 
     ['render', 'clearRender'].forEach(type => {
       let usages = findTestHelperUsageOf(root, type);
@@ -117,22 +128,11 @@ module.exports = function(file, api, options) {
       .remove();
 
     if (specifiers.size > 0) {
-      if (emberTestHelpersImport.size() > 0) {
-        // collect existing imports
-        emberTestHelpersImport
-          .find(j.ImportSpecifier)
-          .forEach(p => specifiers.add(p.node.imported.name))
-          .remove();
-      } else {
-        // Add new `import from 'ember-test-helpers'` node
-        emberTestHelpersImport = ensureImport('ember-test-helpers', 'ember-qunit');
-      }
-
-      emberTestHelpersImport.get('specifiers').replace(
-        Array.from(specifiers)
-          .sort()
-          .map(s => j.importSpecifier(j.identifier(s)))
-      );
+      ensureImportWithSpecifiers({
+        source: 'ember-test-helpers',
+        anchor: 'ember-qunit',
+        specifiers,
+      });
     }
   }
 
