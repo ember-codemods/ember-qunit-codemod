@@ -33,3 +33,31 @@ module('stuff:here', function(hooks) {
     let other = this.otherThing();
   });
 });
+
+module('foo:bar', function(hooks) {
+  setupTest(hooks);
+
+  hooks.beforeEach(function() {
+    this.m3 = true;
+  });
+
+  test('can access', function(assert) {
+    let usesM3 = this.m3;
+  });
+});
+
+module('foo:bar', function(hooks) {
+  setupTest(hooks);
+
+  hooks.beforeEach(function() {
+    this.m3 = true;
+  });
+
+  hooks.beforeEach(function() {
+    doStuff();
+  });
+
+  test('separate `hooks.beforeEach` than lifecycle hooks', function(assert) {
+    let usesM3 = this.m3;
+  });
+});

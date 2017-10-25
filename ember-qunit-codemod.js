@@ -195,10 +195,6 @@ module.exports = function(file, api, options) {
       return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
     }
 
-    function isMethod(nodePath) {
-      return j.match(nodePath, { value: { type: 'FunctionExpression' } });
-    }
-
     const LIFE_CYCLE_METHODS = [
       { key: { name: 'before' }, value: { type: 'FunctionExpression' } },
       { key: { name: 'beforeEach' }, value: { type: 'FunctionExpression' } },
@@ -242,7 +238,12 @@ module.exports = function(file, api, options) {
             lifecycleStatement.comments = property.comments;
 
             callback.body.body.push(lifecycleStatement);
-          } else if (isMethod(property)) {
+          } else {
+            const IGNORED_PROPERTIES = ['integration', 'needs', 'unit'];
+            if (IGNORED_PROPERTIES.includes(property.key.name)) {
+              return;
+            }
+
             if (!customMethodBeforeEachBody) {
               customMethodBeforeEachBody = j.blockStatement([]);
               customMethodBeforeEachExpression = j.expressionStatement(

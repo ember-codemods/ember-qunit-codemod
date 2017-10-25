@@ -24,3 +24,23 @@ test('can have two', function(assert) {
   let custom = this.customFunction();
   let other = this.otherThing();
 });
+
+moduleFor('foo:bar', {
+  m3: true,
+});
+
+test('can access', function(assert) {
+  let usesM3 = this.m3;
+});
+
+moduleFor('foo:bar', {
+  m3: true,
+
+  beforeEach() {
+    doStuff();
+  },
+});
+
+test('separate `hooks.beforeEach` than lifecycle hooks', function(assert) {
+  let usesM3 = this.m3;
+});
