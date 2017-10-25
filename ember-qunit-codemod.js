@@ -73,6 +73,9 @@ module.exports = function(file, api, options) {
     };
 
     let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
+    if (emberQUnitImports.size() === 0) {
+      return;
+    }
 
     // Collect all imports from ember-qunit into local array
     let emberQUnitSpecifiers = new Set();
@@ -164,7 +167,7 @@ module.exports = function(file, api, options) {
     moduleName = calleeArguments[1] || calleeArguments[0];
     subject = calleeArguments[0];
 
-    let setupIdentifier = 'setupTest';
+    let setupIdentifier = calleeName === 'module' ? null : 'setupTest';
     if (options) {
       let hasIntegration = options.properties.some(p => p.key.name === 'integration');
 
@@ -187,6 +190,7 @@ module.exports = function(file, api, options) {
 
   function updateModuleForToNestedModule() {
     const POSSIBLE_MODULES = [
+      { expression: { callee: { name: 'module' } } },
       { expression: { callee: { name: 'moduleFor' } } },
       { expression: { callee: { name: 'moduleForComponent' } } },
       { expression: { callee: { name: 'moduleForModel' } } },
@@ -210,13 +214,20 @@ module.exports = function(file, api, options) {
     function createModule(p) {
       let [moduleName, options, setupType, subject, hasCustomSubject] = parseModule(p);
 
+      let needsHooks = false;
+      let moduleSetupExpression;
+      if (setupType) {
+        needsHooks = true;
+        moduleSetupExpression = j.expressionStatement(
+          j.callExpression(j.identifier(setupType), [j.identifier('hooks')])
+        );
+      }
+
       // Create the new `module(moduleName, function(hooks) {});` invocation
       let callback = j.functionExpression(
         null /* no function name */,
         [j.identifier('hooks')],
-        j.blockStatement([
-          j.expressionStatement(j.callExpression(j.identifier(setupType), [j.identifier('hooks')])),
-        ])
+        j.blockStatement([moduleSetupExpression].filter(Boolean))
       );
       let moduleInvocation = j.expressionStatement(
         j.callExpression(j.identifier('module'), [moduleName, callback])
@@ -229,6 +240,7 @@ module.exports = function(file, api, options) {
           updateGetOwnerThisUsage(property.value);
 
           if (isLifecycleHook(property)) {
+            needsHooks = true;
             let lifecycleStatement = j.expressionStatement(
               j.callExpression(j.memberExpression(j.identifier('hooks'), property.key), [
                 property.value,
@@ -246,6 +258,7 @@ module.exports = function(file, api, options) {
             }
 
             if (!customMethodBeforeEachBody) {
+              needsHooks = true;
               customMethodBeforeEachBody = j.blockStatement([]);
               customMethodBeforeEachExpression = j.expressionStatement(
                 j.callExpression(
@@ -285,6 +298,11 @@ module.exports = function(file, api, options) {
         } else {
           processSubject(callback, subject);
         }
+      }
+
+      if (needsHooks === false) {
+        // nothing used the `hooks` argument, remove it
+        callback.params = [];
       }
 
       return [moduleInvocation, callback.body.body, setupType, subject, hasCustomSubject];
@@ -574,19 +592,13 @@ module.exports = function(file, api, options) {
 
   const printOptions = options.printOptions || { quote: 'single' };
 
-  let emberQUnitImports = root.find(j.ImportDeclaration, { source: { value: 'ember-qunit' } });
-  if (emberQUnitImports.size() > 0) {
-    moveQUnitImportsFromEmberQUnit();
-    updateToNewEmberQUnitImports();
-    updateEmberTestHelperImports();
-    updateModuleForToNestedModule();
-    updateLookupCalls();
-    updateRegisterCalls();
-    updateInjectCalls();
-  } else {
-    updateEmberTestHelperImports();
-  }
-
+  moveQUnitImportsFromEmberQUnit();
+  updateToNewEmberQUnitImports();
+  updateEmberTestHelperImports();
+  updateModuleForToNestedModule();
+  updateLookupCalls();
+  updateRegisterCalls();
+  updateInjectCalls();
   updateWaitUsage();
 
   return root.toSource(printOptions);
