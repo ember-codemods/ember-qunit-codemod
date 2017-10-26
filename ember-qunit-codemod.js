@@ -126,11 +126,11 @@ module.exports = function(file, api, options) {
     }
   }
 
-  function updateEmberTestHelperImports() {
+  function updateEmberTestHelperImports(ctx) {
     let specifiers = new Set();
 
     ['render', 'clearRender'].forEach(type => {
-      let usages = findTestHelperUsageOf(root, type);
+      let usages = findTestHelperUsageOf(ctx, type);
       if (usages.size() > 0) {
         specifiers.add(type);
       }
@@ -465,8 +465,8 @@ module.exports = function(file, api, options) {
       });
   }
 
-  function updateRegisterCalls() {
-    root
+  function updateRegisterCalls(ctx) {
+    ctx
       .find(j.MemberExpression, {
         object: {
           object: { type: 'ThisExpression' },
@@ -479,7 +479,7 @@ module.exports = function(file, api, options) {
         path.replace(j.memberExpression(thisDotOwner, path.value.property));
       });
 
-    root
+    ctx
       .find(j.MemberExpression, {
         object: { type: 'ThisExpression' },
         property: { name: 'register' },
@@ -490,8 +490,8 @@ module.exports = function(file, api, options) {
       });
   }
 
-  function updateInjectCalls() {
-    root
+  function updateInjectCalls(ctx) {
+    ctx
       .find(j.CallExpression, {
         callee: {
           type: 'MemberExpression',
