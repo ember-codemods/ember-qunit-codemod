@@ -116,6 +116,11 @@ module.exports = function(file, api, options) {
     emberQUnitImports
       .get('specifiers')
       .replace(Array.from(emberQUnitSpecifiers).map(s => j.importSpecifier(j.identifier(s))));
+
+    // If we have an empty import, remove the import declaration
+    if (emberQUnitSpecifiers.size === 0) {
+      emberQUnitImports.remove();
+    }
   }
 
   function updateEmberTestHelperImports() {
