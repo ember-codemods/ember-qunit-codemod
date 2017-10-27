@@ -234,9 +234,35 @@ module.exports = function(file, api, options) {
         [j.identifier('hooks')],
         j.blockStatement([moduleSetupExpression].filter(Boolean))
       );
-      let moduleInvocation = j.expressionStatement(
-        j.callExpression(j.identifier('module'), [moduleName, callback])
-      );
+
+      function buildModule(moduleName, callback) {
+        // using j.callExpression() builds this:
+
+        // module(
+        //   'some loooooooooooong name',
+        //   function(hooks) {
+        //     setupTest(hooks);
+        //   }
+        // );
+
+        // but we want to enforce not having line breaks in the module() invocation
+        // so we'll have to use a little hack to get this:
+
+        // module('some loooooooooooong name', function(hooks) {
+        //   setupTest(hooks);
+        // });
+
+        let node = j(`module('moduleName', function(hooks) {})`)
+          .find(j.CallExpression)
+          .paths()[0].node;
+
+        node.arguments[0] = moduleName;
+        node.arguments[1] = callback;
+
+        return node;
+      }
+
+      let moduleInvocation = j.expressionStatement(buildModule(moduleName, callback));
 
       if (options) {
         let customMethodBeforeEachBody, customMethodBeforeEachExpression;
