@@ -126,25 +126,6 @@ module.exports = function(file, api, options) {
     }
   }
 
-  function updateEmberTestHelperImports(ctx) {
-    let specifiers = new Set();
-
-    ['render', 'clearRender'].forEach(type => {
-      let usages = findTestHelperUsageOf(ctx, type);
-      if (usages.size() > 0) {
-        specifiers.add(type);
-      }
-    });
-
-    if (specifiers.size > 0) {
-      ensureImportWithSpecifiers({
-        source: 'ember-test-helpers',
-        anchor: 'ember-qunit',
-        specifiers,
-      });
-    }
-  }
-
   function findTestHelperUsageOf(collection, property) {
     return collection.find(j.ExpressionStatement, {
       expression: {
@@ -242,7 +223,14 @@ module.exports = function(file, api, options) {
         let customMethodBeforeEachBody, customMethodBeforeEachExpression;
 
         options.properties.forEach(property => {
-          updateGetOwnerThisUsage(property.value);
+          if (setupType) {
+            let expressionCollection = j(property.value);
+
+            updateGetOwnerThisUsage(expressionCollection);
+            updateLookupCalls(expressionCollection);
+            updateRegisterCalls(expressionCollection);
+            updateInjectCalls(expressionCollection);
+          }
 
           if (isLifecycleHook(property)) {
             needsHooks = true;
@@ -316,10 +304,13 @@ module.exports = function(file, api, options) {
     function processExpressionForRenderingTest(testExpression) {
       // mark the test function as an async function
       let testExpressionCollection = j(testExpression);
+      let specifiers = new Set();
 
       // Transform to await render() or await clearRender()
       ['render', 'clearRender'].forEach(type => {
         findTestHelperUsageOf(testExpressionCollection, type).forEach(p => {
+          specifiers.add(type);
+
           let expression = p.get('expression');
 
           let awaitExpression = j.awaitExpression(
@@ -328,6 +319,12 @@ module.exports = function(file, api, options) {
           expression.replace(awaitExpression);
           p.scope.node.async = true;
         });
+      });
+
+      ensureImportWithSpecifiers({
+        source: 'ember-test-helpers',
+        anchor: 'ember-qunit',
+        specifiers,
       });
 
       // Migrate `this._element` -> `this.element`
@@ -419,39 +416,43 @@ module.exports = function(file, api, options) {
     let programPath = root.get('program');
     let bodyPath = programPath.get('body');
 
-    let bodyReplacement = [];
     let currentModuleCallbackBody, currentTestType, currentSubject, currentHasCustomSubject;
     bodyPath.each(expressionPath => {
       let expression = expressionPath.node;
       if (isModuleDefinition(expressionPath)) {
         let result = createModule(expressionPath);
-        bodyReplacement.push(result[0]);
+        expressionPath.replace(result[0]);
         currentModuleCallbackBody = result[1];
         currentTestType = result[2];
         currentSubject = result[3];
         currentHasCustomSubject = result[4];
       } else if (currentModuleCallbackBody) {
+        // calling `path.replace()` essentially just removes
+        expressionPath.replace();
         currentModuleCallbackBody.push(expression);
 
         let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
         if (isTest) {
-          updateGetOwnerThisUsage(expression.expression.arguments[1]);
+          let expressionCollection = j(expression);
+          updateLookupCalls(expressionCollection);
+          updateRegisterCalls(expressionCollection);
+          updateInjectCalls(expressionCollection);
+          // passing the specific function callback here, because `getOwner` is only
+          // transformed if the call site's scope is the same as the expression passed
+          updateGetOwnerThisUsage(j(expression.expression.arguments[1]));
+
           if (currentTestType === 'setupRenderingTest') {
             processExpressionForRenderingTest(expression);
           } else if (currentTestType === 'setupTest' && !currentHasCustomSubject) {
             processSubject(expression, currentSubject);
           }
         }
-      } else {
-        bodyReplacement.push(expression);
       }
     });
-
-    bodyPath.replace(bodyReplacement);
   }
 
-  function updateLookupCalls() {
-    root
+  function updateLookupCalls(ctx) {
+    ctx
       .find(j.MemberExpression, {
         object: {
           object: { type: 'ThisExpression' },
@@ -539,8 +540,8 @@ module.exports = function(file, api, options) {
       });
   }
 
-  function updateGetOwnerThisUsage(expression) {
-    let expressionCollection = j(expression);
+  function updateGetOwnerThisUsage(expressionCollection) {
+    let expression = expressionCollection.get().node;
     let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
 
     function replacement(path) {
@@ -599,11 +600,7 @@ module.exports = function(file, api, options) {
 
   moveQUnitImportsFromEmberQUnit();
   updateToNewEmberQUnitImports();
-  updateEmberTestHelperImports();
   updateModuleForToNestedModule();
-  updateLookupCalls();
-  updateRegisterCalls();
-  updateInjectCalls();
   updateWaitUsage();
 
   return root.toSource(printOptions);
