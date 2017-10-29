@@ -144,14 +144,19 @@ module.exports = function(file, api, options) {
   function parseModule(p) {
     let calleeName = p.node.expression.callee.name;
     // Find the moduleName and the module's options
-    let moduleName, subject, options, hasCustomSubject;
+    let moduleName, subject, options, hasCustomSubject, isNestedModule;
     let calleeArguments = p.node.expression.arguments.slice();
     let lastArgument = calleeArguments[calleeArguments.length - 1];
     if (lastArgument.type === 'ObjectExpression') {
       options = calleeArguments.pop();
     }
-    moduleName = calleeArguments[1] || calleeArguments[0];
-    subject = calleeArguments[0];
+    if (calleeArguments[1] && j.match(calleeArguments[1], { type: 'FunctionExpression' })) {
+      isNestedModule = true;
+      moduleName = calleeArguments[0];
+    } else {
+      moduleName = calleeArguments[1] || calleeArguments[0];
+      subject = calleeArguments[0];
+    }
 
     let setupIdentifier = calleeName === 'module' ? null : 'setupTest';
     if (options) {
@@ -171,7 +176,7 @@ module.exports = function(file, api, options) {
       hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
     }
 
-    return [moduleName, options, setupIdentifier, subject, hasCustomSubject];
+    return [moduleName, options, setupIdentifier, subject, hasCustomSubject, isNestedModule];
   }
 
   function updateModuleForToNestedModule() {
@@ -198,7 +203,13 @@ module.exports = function(file, api, options) {
     }
 
     function createModule(p) {
-      let [moduleName, options, setupType, subject, hasCustomSubject] = parseModule(p);
+      let [moduleName, options, setupType, subject, hasCustomSubject, isNestedModule] = parseModule(
+        p
+      );
+
+      if (isNestedModule) {
+        return null;
+      }
 
       let needsHooks = false;
       let moduleSetupExpression;
@@ -447,6 +458,9 @@ module.exports = function(file, api, options) {
       let expression = expressionPath.node;
       if (isModuleDefinition(expressionPath)) {
         let result = createModule(expressionPath);
+        if (result === null) {
+          return;
+        }
         expressionPath.replace(result[0]);
         currentModuleCallbackBody = result[1];
         currentTestType = result[2];
