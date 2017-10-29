@@ -17,4 +17,12 @@ module.exports = {
       printWidth: 100,
     }],
   },
+  overrides: [
+    {
+      files: ['__tests__/**/*.js'],
+      env: {
+        jest: true
+      }
+    },
+  ],
 };
