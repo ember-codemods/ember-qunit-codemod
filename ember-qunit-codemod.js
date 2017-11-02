@@ -2,6 +2,65 @@ module.exports = function(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
+  const POSSIBLE_MODULES = [
+    { expression: { callee: { name: 'module' } } },
+    { expression: { callee: { name: 'moduleFor' } } },
+    { expression: { callee: { name: 'moduleForComponent' } } },
+    { expression: { callee: { name: 'moduleForModel' } } },
+  ];
+
+  class ModuleInfo {
+    static isModuleDefinition(nodePath) {
+      return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
+    }
+
+    constructor(p) {
+      let calleeName = p.node.expression.callee.name;
+      // Find the moduleName and the module's options
+      let moduleName, subject, options, hasCustomSubject, isNestedModule;
+      let calleeArguments = p.node.expression.arguments.slice();
+      let lastArgument = calleeArguments[calleeArguments.length - 1];
+      if (lastArgument.type === 'ObjectExpression') {
+        options = calleeArguments.pop();
+      }
+      if (calleeArguments[1] && j.match(calleeArguments[1], { type: 'FunctionExpression' })) {
+        isNestedModule = true;
+        moduleName = calleeArguments[0];
+      } else {
+        moduleName = calleeArguments[1] || calleeArguments[0];
+        subject = calleeArguments[0];
+      }
+
+      let setupIdentifier = calleeName === 'module' ? null : 'setupTest';
+      if (options) {
+        let hasIntegration = options.properties.some(p => p.key.name === 'integration');
+
+        if (calleeName === `moduleForComponent`) {
+          if (hasIntegration) {
+            setupIdentifier = 'setupRenderingTest';
+            subject = null;
+          } else {
+            subject = j.literal(`component:${calleeArguments[0].value}`);
+          }
+        } else if (calleeName === 'moduleForModel') {
+          subject = j.literal(`model:${calleeArguments[0].value}`);
+        }
+
+        hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
+      }
+
+      this.moduleName = moduleName;
+      this.moduleOptions = options;
+      this.setupType = setupIdentifier;
+      this.subjectContainerKey = subject;
+      this.hasCustomSubjectImplementation = hasCustomSubject;
+      this.isNestedModule = isNestedModule;
+
+      this.moduleInvocation = null;
+      this.moduleCallbackBody = null;
+    }
+  }
+
   function ensureImportWithSpecifiers({ source, specifiers, anchor, positionMethod }) {
     let importStatement = ensureImport(source, anchor, positionMethod);
     let combinedSpecifiers = new Set(specifiers);
@@ -106,8 +165,8 @@ module.exports = function(file, api) {
               },
             })
             .forEach(p => {
-              let [, , setupType] = parseModule(p);
-              emberQUnitSpecifiers.add(setupType);
+              let moduleInfo = new ModuleInfo(p);
+              emberQUnitSpecifiers.add(moduleInfo.setupType);
             });
         } else {
           emberQUnitSpecifiers.add(mappedName);
@@ -141,56 +200,7 @@ module.exports = function(file, api) {
     });
   }
 
-  function parseModule(p) {
-    let calleeName = p.node.expression.callee.name;
-    // Find the moduleName and the module's options
-    let moduleName, subject, options, hasCustomSubject, isNestedModule;
-    let calleeArguments = p.node.expression.arguments.slice();
-    let lastArgument = calleeArguments[calleeArguments.length - 1];
-    if (lastArgument.type === 'ObjectExpression') {
-      options = calleeArguments.pop();
-    }
-    if (calleeArguments[1] && j.match(calleeArguments[1], { type: 'FunctionExpression' })) {
-      isNestedModule = true;
-      moduleName = calleeArguments[0];
-    } else {
-      moduleName = calleeArguments[1] || calleeArguments[0];
-      subject = calleeArguments[0];
-    }
-
-    let setupIdentifier = calleeName === 'module' ? null : 'setupTest';
-    if (options) {
-      let hasIntegration = options.properties.some(p => p.key.name === 'integration');
-
-      if (calleeName === `moduleForComponent`) {
-        if (hasIntegration) {
-          setupIdentifier = 'setupRenderingTest';
-          subject = null;
-        } else {
-          subject = j.literal(`component:${calleeArguments[0].value}`);
-        }
-      } else if (calleeName === 'moduleForModel') {
-        subject = j.literal(`model:${calleeArguments[0].value}`);
-      }
-
-      hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
-    }
-
-    return [moduleName, options, setupIdentifier, subject, hasCustomSubject, isNestedModule];
-  }
-
   function updateModuleForToNestedModule() {
-    const POSSIBLE_MODULES = [
-      { expression: { callee: { name: 'module' } } },
-      { expression: { callee: { name: 'moduleFor' } } },
-      { expression: { callee: { name: 'moduleForComponent' } } },
-      { expression: { callee: { name: 'moduleForModel' } } },
-    ];
-
-    function isModuleDefinition(nodePath) {
-      return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
-    }
-
     const LIFE_CYCLE_METHODS = [
       { key: { name: 'before' }, value: { type: 'FunctionExpression' } },
       { key: { name: 'beforeEach' }, value: { type: 'FunctionExpression' } },
@@ -203,20 +213,18 @@ module.exports = function(file, api) {
     }
 
     function createModule(p) {
-      let [moduleName, options, setupType, subject, hasCustomSubject, isNestedModule] = parseModule(
-        p
-      );
+      let moduleInfo = new ModuleInfo(p);
 
-      if (isNestedModule) {
+      if (moduleInfo.isNestedModule) {
         return null;
       }
 
       let needsHooks = false;
       let moduleSetupExpression;
-      if (setupType) {
+      if (moduleInfo.setupType) {
         needsHooks = true;
         moduleSetupExpression = j.expressionStatement(
-          j.callExpression(j.identifier(setupType), [j.identifier('hooks')])
+          j.callExpression(j.identifier(moduleInfo.setupType), [j.identifier('hooks')])
         );
       }
 
@@ -254,13 +262,13 @@ module.exports = function(file, api) {
         return node;
       }
 
-      let moduleInvocation = j.expressionStatement(buildModule(moduleName, callback));
+      let moduleInvocation = j.expressionStatement(buildModule(moduleInfo.moduleName, callback));
 
-      if (options) {
+      if (moduleInfo.moduleOptions) {
         let customMethodBeforeEachBody, customMethodBeforeEachExpression;
 
-        options.properties.forEach(property => {
-          if (setupType) {
+        moduleInfo.moduleOptions.properties.forEach(property => {
+          if (moduleInfo.setupType) {
             let expressionCollection = j(property.value);
 
             updateGetOwnerThisUsage(expressionCollection);
@@ -323,10 +331,10 @@ module.exports = function(file, api) {
           }
         });
 
-        if (setupType === 'setupRenderingTest') {
+        if (moduleInfo.setupType === 'setupRenderingTest') {
           processExpressionForRenderingTest(callback);
         } else {
-          processSubject(callback, subject);
+          processSubject(callback, moduleInfo.subjectContainerKey);
         }
       }
 
@@ -335,7 +343,11 @@ module.exports = function(file, api) {
         callback.params = [];
       }
 
-      return [moduleInvocation, callback.body.body, setupType, subject, hasCustomSubject];
+      // [moduleInvocation, callback.body.body, setupType, subject, hasCustomSubject];
+      moduleInfo.moduleInvocation = moduleInvocation;
+      moduleInfo.moduleCallbackBody = callback.body.body;
+
+      return moduleInfo;
     }
 
     function processExpressionForRenderingTest(testExpression) {
@@ -464,23 +476,20 @@ module.exports = function(file, api) {
     let programPath = root.get('program');
     let bodyPath = programPath.get('body');
 
-    let currentModuleCallbackBody, currentTestType, currentSubject, currentHasCustomSubject;
+    let currentModuleInfo;
     bodyPath.each(expressionPath => {
       let expression = expressionPath.node;
-      if (isModuleDefinition(expressionPath)) {
-        let result = createModule(expressionPath);
-        if (result === null) {
+      if (ModuleInfo.isModuleDefinition(expressionPath)) {
+        let moduleInfo = createModule(expressionPath);
+        if (moduleInfo === null) {
           return;
         }
-        expressionPath.replace(result[0]);
-        currentModuleCallbackBody = result[1];
-        currentTestType = result[2];
-        currentSubject = result[3];
-        currentHasCustomSubject = result[4];
-      } else if (currentModuleCallbackBody) {
+        currentModuleInfo = moduleInfo;
+        expressionPath.replace(moduleInfo.moduleInvocation);
+      } else if (currentModuleInfo) {
         // calling `path.replace()` essentially just removes
         expressionPath.replace();
-        currentModuleCallbackBody.push(expression);
+        currentModuleInfo.moduleCallbackBody.push(expression);
 
         let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
         if (isTest) {
@@ -492,10 +501,13 @@ module.exports = function(file, api) {
           // transformed if the call site's scope is the same as the expression passed
           updateGetOwnerThisUsage(j(expression.expression.arguments[1]));
 
-          if (currentTestType === 'setupRenderingTest') {
+          if (currentModuleInfo.setupType === 'setupRenderingTest') {
             processExpressionForRenderingTest(expression);
-          } else if (currentTestType === 'setupTest' && !currentHasCustomSubject) {
-            processSubject(expression, currentSubject);
+          } else if (
+            currentModuleInfo.setupType === 'setupTest' &&
+            !currentModuleInfo.hasCustomSubjectImplementation
+          ) {
+            processSubject(expression, currentModuleInfo.subjectContainerKey);
           }
         }
       }
