@@ -1,6 +1,8 @@
 import { module, test } from 'qunit';
 import { setupTest } from 'ember-qunit';
 
+import { run } from '@ember/runloop';
+
 module('Unit | Service | Flash', function(hooks) {
   setupTest(hooks);
 
@@ -21,11 +23,11 @@ module('Unit | Model | Foo', function(hooks) {
   setupTest(hooks);
 
   test('has some thing', function (assert) {
-    let subject = this.owner.lookup('service:store').createRecord('foo');
+    let subject = run(() => this.owner.lookup('service:store').createRecord('foo'));
   });
 
   test('has another thing', function (assert) {
-    let subject = this.owner.lookup('service:store').createRecord('foo', { size: 'big' });
+    let subject = run(() => this.owner.lookup('service:store').createRecord('foo', { size: 'big' }));
   });
 });
 
@@ -33,7 +35,7 @@ module('Integration | Model | Foo', function(hooks) {
   setupTest(hooks);
 
   test('has some thing', function (assert) {
-    let subject = this.owner.lookup('service:store').createRecord('foo');
+    let subject = run(() => this.owner.lookup('service:store').createRecord('foo'));
   });
 });
 
@@ -41,7 +43,7 @@ module('Unit | Model | Foo', function(hooks) {
   setupTest(hooks);
 
   test('has some thing', function (assert) {
-    let subject = this.owner.lookup('service:store').createRecord('foo');
+    let subject = run(() => this.owner.lookup('service:store').createRecord('foo'));
   });
 });
 

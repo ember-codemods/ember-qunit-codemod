@@ -1,4 +1,4 @@
-module.exports = function(file, api, options) {
+module.exports = function(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
@@ -28,10 +28,10 @@ module.exports = function(file, api, options) {
     let anchorImport = root.find(j.ImportDeclaration, { source: { value: anchor } });
     let imports = root.find(j.ImportDeclaration);
     if (anchorImport.size() > 0) {
-      anchorImport[method](newImport);
+      anchorImport.at(anchorImport.size() - 1)[method](newImport);
     } else if (imports.size() > 0) {
       // if anchor is not present, always add at the end
-      imports.insertAfter(newImport);
+      imports.at(imports.size() - 1).insertAfter(newImport);
     } else {
       // if no imports are present, add as first statement
       root.get().node.program.body.unshift(newImport);
@@ -415,20 +415,31 @@ module.exports = function(file, api, options) {
             )
           );
         } else if (subjectType === 'model') {
+          ensureImportWithSpecifiers({
+            source: '@ember/runloop',
+            specifiers: ['run'],
+          });
+
           p.replace(
-            j.callExpression(
-              j.memberExpression(
+            j.callExpression(j.identifier('run'), [
+              j.arrowFunctionExpression(
+                [],
                 j.callExpression(
                   j.memberExpression(
-                    j.memberExpression(j.thisExpression(), j.identifier('owner')),
-                    j.identifier('lookup')
+                    j.callExpression(
+                      j.memberExpression(
+                        j.memberExpression(j.thisExpression(), j.identifier('owner')),
+                        j.identifier('lookup')
+                      ),
+                      [j.literal('service:store')]
+                    ),
+                    j.identifier('createRecord')
                   ),
-                  [j.literal('service:store')]
+                  [j.literal(subjectName), options].filter(Boolean)
                 ),
-                j.identifier('createRecord')
+                true
               ),
-              [j.literal(subjectName), options].filter(Boolean)
-            )
+            ])
           );
         } else {
           p.replace(
@@ -636,7 +647,7 @@ module.exports = function(file, api, options) {
     }
   }
 
-  const printOptions = options.printOptions || { quote: 'single' };
+  const printOptions = { quote: 'single', wrapColumn: 100 };
 
   moveQUnitImportsFromEmberQUnit();
   updateToNewEmberQUnitImports();
