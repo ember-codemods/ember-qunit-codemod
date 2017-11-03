@@ -200,6 +200,38 @@ module.exports = function(file, api) {
     });
   }
 
+  function addHooksParam(moduleInfo) {
+    moduleInfo.moduleCallback.params = [j.identifier('hooks')];
+  }
+
+  function addToBeforeEach(moduleInfo, expression) {
+    let beforeEachBody = moduleInfo.moduleBeforeEachBody;
+    if (!beforeEachBody) {
+      if (moduleInfo.moduleCallback) {
+        addHooksParam(moduleInfo);
+      }
+
+      let beforeEachBlockStatement = j.blockStatement([]);
+      let beforeEachExpression = j.expressionStatement(
+        j.callExpression(j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')), [
+          j.functionExpression(
+            null,
+            [
+              /* no arguments */
+            ],
+            beforeEachBlockStatement
+          ),
+        ])
+      );
+
+      beforeEachBody = moduleInfo.moduleBeforeEachBody = beforeEachBlockStatement.body;
+      let insertAt = moduleInfo.setupType ? 1 : 0;
+      moduleInfo.moduleCallbackBody.splice(insertAt, 0, beforeEachExpression);
+    }
+
+    beforeEachBody.push(expression);
+  }
+
   function updateModuleForToNestedModule() {
     const LIFE_CYCLE_METHODS = [
       { key: { name: 'before' }, value: { type: 'FunctionExpression' } },
@@ -210,37 +242,6 @@ module.exports = function(file, api) {
 
     function isLifecycleHook(nodePath) {
       return LIFE_CYCLE_METHODS.some(matcher => j.match(nodePath, matcher));
-    }
-
-    function addHooksParam(moduleInfo) {
-      moduleInfo.moduleCallback.params = [j.identifier('hooks')];
-    }
-
-    function addToBeforeEach(moduleInfo, expression) {
-      let beforeEachBody = moduleInfo.moduleBeforeEachBody;
-      if (!beforeEachBody) {
-        if (moduleInfo.moduleCallback) {
-          addHooksParam(moduleInfo);
-        }
-
-        let beforeEachBlockStatement = j.blockStatement([]);
-        let beforeEachExpression = j.expressionStatement(
-          j.callExpression(j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')), [
-            j.functionExpression(
-              null,
-              [
-                /* no arguments */
-              ],
-              beforeEachBlockStatement
-            ),
-          ])
-        );
-
-        beforeEachBody = moduleInfo.moduleBeforeEachBody = beforeEachBlockStatement.body;
-        moduleInfo.moduleCallbackBody.push(beforeEachExpression);
-      }
-
-      beforeEachBody.push(expression);
     }
 
     function createModule(p) {
@@ -257,6 +258,7 @@ module.exports = function(file, api) {
         moduleSetupExpression = j.expressionStatement(
           j.callExpression(j.identifier(moduleInfo.setupType), [j.identifier('hooks')])
         );
+        moduleInfo.moduleSetupExpression = moduleSetupExpression;
       }
 
       // Create the new `module(moduleName, function(hooks) {});` invocation
@@ -308,6 +310,7 @@ module.exports = function(file, api) {
             updateLookupCalls(expressionCollection);
             updateRegisterCalls(expressionCollection);
             updateInjectCalls(expressionCollection);
+            updateOnCalls(expressionCollection, moduleInfo);
           }
 
           if (isLifecycleHook(property)) {
@@ -506,6 +509,7 @@ module.exports = function(file, api) {
           updateLookupCalls(expressionCollection);
           updateRegisterCalls(expressionCollection);
           updateInjectCalls(expressionCollection);
+          updateOnCalls(expressionCollection, currentModuleInfo);
           // passing the specific function callback here, because `getOwner` is only
           // transformed if the call site's scope is the same as the expression passed
           updateGetOwnerThisUsage(j(expression.expression.arguments[1]));
@@ -561,6 +565,79 @@ module.exports = function(file, api) {
         let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
         path.replace(j.memberExpression(thisDotOwner, path.value.property));
       });
+  }
+
+  function updateOnCalls(ctx, moduleInfo) {
+    let usages = ctx.find(j.CallExpression, {
+      callee: {
+        type: 'MemberExpression',
+        object: {
+          type: 'ThisExpression',
+        },
+        property: {
+          name: 'on',
+        },
+      },
+    });
+
+    usages.forEach(p => {
+      let actionName = p.node.arguments[0].value;
+      let property = j.identifier(actionName);
+
+      if (!actionName.match(/^[a-zA-Z_][a-zA-Z0-9]+$/)) {
+        // if not, use `this['property-name']`
+        property = j.literal(actionName);
+      }
+
+      let assignment = j.assignmentExpression(
+        '=',
+        j.memberExpression(
+          j.memberExpression(j.thisExpression(), j.identifier('actions')),
+          property
+        ),
+        p.node.arguments[1]
+      );
+      p.replace(assignment);
+    });
+
+    if (usages.size() > 0 && !moduleInfo.hasSendFunctionInBeforeEach) {
+      moduleInfo.hasSendFunctionInBeforeEach = true;
+
+      addToBeforeEach(
+        moduleInfo,
+        j.expressionStatement(
+          j.assignmentExpression(
+            '=',
+            j.memberExpression(j.thisExpression(), j.identifier('actions')),
+            j.objectExpression([])
+          )
+        )
+      );
+
+      addToBeforeEach(
+        moduleInfo,
+        j.expressionStatement(
+          j.assignmentExpression(
+            '=',
+            j.memberExpression(j.thisExpression(), j.identifier('send')),
+            j.arrowFunctionExpression(
+              [j.identifier('actionName'), j.restElement(j.identifier('args'))],
+              j.callExpression(
+                j.memberExpression(
+                  j.memberExpression(
+                    j.memberExpression(j.thisExpression(), j.identifier('actions')),
+                    j.identifier('actionName'),
+                    true
+                  ),
+                  j.identifier('apply')
+                ),
+                [j.thisExpression(), j.identifier('args')]
+              )
+            )
+          )
+        )
+      );
+    }
   }
 
   function updateInjectCalls(ctx) {
