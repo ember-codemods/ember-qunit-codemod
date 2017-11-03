@@ -300,8 +300,6 @@ module.exports = function(file, api) {
       let moduleInvocation = j.expressionStatement(buildModule(moduleInfo.moduleName, callback));
 
       if (moduleInfo.moduleOptions) {
-        let customMethodBeforeEachBody, customMethodBeforeEachExpression;
-
         moduleInfo.moduleOptions.properties.forEach(property => {
           if (moduleInfo.setupType) {
             let expressionCollection = j(property.value);
