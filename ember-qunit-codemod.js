@@ -212,6 +212,37 @@ module.exports = function(file, api) {
       return LIFE_CYCLE_METHODS.some(matcher => j.match(nodePath, matcher));
     }
 
+    function addHooksParam(moduleInfo) {
+      moduleInfo.moduleCallback.params = [j.identifier('hooks')];
+    }
+
+    function addToBeforeEach(moduleInfo, expression) {
+      let beforeEachBody = moduleInfo.moduleBeforeEachBody;
+      if (!beforeEachBody) {
+        if (moduleInfo.moduleCallback) {
+          addHooksParam(moduleInfo);
+        }
+
+        let beforeEachBlockStatement = j.blockStatement([]);
+        let beforeEachExpression = j.expressionStatement(
+          j.callExpression(j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')), [
+            j.functionExpression(
+              null,
+              [
+                /* no arguments */
+              ],
+              beforeEachBlockStatement
+            ),
+          ])
+        );
+
+        beforeEachBody = moduleInfo.moduleBeforeEachBody = beforeEachBlockStatement.body;
+        moduleInfo.moduleCallbackBody.push(beforeEachExpression);
+      }
+
+      beforeEachBody.push(expression);
+    }
+
     function createModule(p) {
       let moduleInfo = new ModuleInfo(p);
 
@@ -231,9 +262,11 @@ module.exports = function(file, api) {
       // Create the new `module(moduleName, function(hooks) {});` invocation
       let callback = j.functionExpression(
         null /* no function name */,
-        [j.identifier('hooks')],
+        [],
         j.blockStatement([moduleSetupExpression].filter(Boolean))
       );
+      moduleInfo.moduleCallbackBody = callback.body.body;
+      moduleInfo.moduleCallback = callback;
 
       function buildModule(moduleName, callback) {
         // using j.callExpression() builds this:
@@ -295,27 +328,6 @@ module.exports = function(file, api) {
               return;
             }
 
-            if (!customMethodBeforeEachBody) {
-              needsHooks = true;
-              customMethodBeforeEachBody = j.blockStatement([]);
-              customMethodBeforeEachExpression = j.expressionStatement(
-                j.callExpression(
-                  j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')),
-                  [
-                    j.functionExpression(
-                      null,
-                      [
-                        /* no arguments */
-                      ],
-                      customMethodBeforeEachBody
-                    ),
-                  ]
-                )
-              );
-
-              callback.body.body.push(customMethodBeforeEachExpression);
-            }
-
             let methodAssignment = j.expressionStatement(
               j.assignmentExpression(
                 '=',
@@ -327,7 +339,7 @@ module.exports = function(file, api) {
             // preserve any comments that were present
             methodAssignment.comments = property.comments;
 
-            customMethodBeforeEachBody.body.push(methodAssignment);
+            addToBeforeEach(moduleInfo, methodAssignment);
           }
         });
 
@@ -338,14 +350,11 @@ module.exports = function(file, api) {
         }
       }
 
-      if (needsHooks === false) {
-        // nothing used the `hooks` argument, remove it
-        callback.params = [];
-      }
-
-      // [moduleInvocation, callback.body.body, setupType, subject, hasCustomSubject];
       moduleInfo.moduleInvocation = moduleInvocation;
-      moduleInfo.moduleCallbackBody = callback.body.body;
+
+      if (needsHooks === true) {
+        addHooksParam(moduleInfo);
+      }
 
       return moduleInfo;
     }
