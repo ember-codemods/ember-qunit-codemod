@@ -2,6 +2,65 @@ module.exports = function(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
+  const POSSIBLE_MODULES = [
+    { expression: { callee: { name: 'module' } } },
+    { expression: { callee: { name: 'moduleFor' } } },
+    { expression: { callee: { name: 'moduleForComponent' } } },
+    { expression: { callee: { name: 'moduleForModel' } } },
+  ];
+
+  class ModuleInfo {
+    static isModuleDefinition(nodePath) {
+      return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
+    }
+
+    constructor(p) {
+      let calleeName = p.node.expression.callee.name;
+      // Find the moduleName and the module's options
+      let moduleName, subject, options, hasCustomSubject, isNestedModule;
+      let calleeArguments = p.node.expression.arguments.slice();
+      let lastArgument = calleeArguments[calleeArguments.length - 1];
+      if (lastArgument.type === 'ObjectExpression') {
+        options = calleeArguments.pop();
+      }
+      if (calleeArguments[1] && j.match(calleeArguments[1], { type: 'FunctionExpression' })) {
+        isNestedModule = true;
+        moduleName = calleeArguments[0];
+      } else {
+        moduleName = calleeArguments[1] || calleeArguments[0];
+        subject = calleeArguments[0];
+      }
+
+      let setupIdentifier = calleeName === 'module' ? null : 'setupTest';
+      if (options) {
+        let hasIntegration = options.properties.some(p => p.key.name === 'integration');
+
+        if (calleeName === `moduleForComponent`) {
+          if (hasIntegration) {
+            setupIdentifier = 'setupRenderingTest';
+            subject = null;
+          } else {
+            subject = j.literal(`component:${calleeArguments[0].value}`);
+          }
+        } else if (calleeName === 'moduleForModel') {
+          subject = j.literal(`model:${calleeArguments[0].value}`);
+        }
+
+        hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
+      }
+
+      this.moduleName = moduleName;
+      this.moduleOptions = options;
+      this.setupType = setupIdentifier;
+      this.subjectContainerKey = subject;
+      this.hasCustomSubjectImplementation = hasCustomSubject;
+      this.isNestedModule = isNestedModule;
+
+      this.moduleInvocation = null;
+      this.moduleCallbackBody = null;
+    }
+  }
+
   function ensureImportWithSpecifiers({ source, specifiers, anchor, positionMethod }) {
     let importStatement = ensureImport(source, anchor, positionMethod);
     let combinedSpecifiers = new Set(specifiers);
@@ -106,8 +165,8 @@ module.exports = function(file, api) {
               },
             })
             .forEach(p => {
-              let [, , setupType] = parseModule(p);
-              emberQUnitSpecifiers.add(setupType);
+              let moduleInfo = new ModuleInfo(p);
+              emberQUnitSpecifiers.add(moduleInfo.setupType);
             });
         } else {
           emberQUnitSpecifiers.add(mappedName);
@@ -141,56 +200,39 @@ module.exports = function(file, api) {
     });
   }
 
-  function parseModule(p) {
-    let calleeName = p.node.expression.callee.name;
-    // Find the moduleName and the module's options
-    let moduleName, subject, options, hasCustomSubject, isNestedModule;
-    let calleeArguments = p.node.expression.arguments.slice();
-    let lastArgument = calleeArguments[calleeArguments.length - 1];
-    if (lastArgument.type === 'ObjectExpression') {
-      options = calleeArguments.pop();
-    }
-    if (calleeArguments[1] && j.match(calleeArguments[1], { type: 'FunctionExpression' })) {
-      isNestedModule = true;
-      moduleName = calleeArguments[0];
-    } else {
-      moduleName = calleeArguments[1] || calleeArguments[0];
-      subject = calleeArguments[0];
-    }
+  function addHooksParam(moduleInfo) {
+    moduleInfo.moduleCallback.params = [j.identifier('hooks')];
+  }
 
-    let setupIdentifier = calleeName === 'module' ? null : 'setupTest';
-    if (options) {
-      let hasIntegration = options.properties.some(p => p.key.name === 'integration');
-
-      if (calleeName === `moduleForComponent`) {
-        if (hasIntegration) {
-          setupIdentifier = 'setupRenderingTest';
-          subject = null;
-        } else {
-          subject = j.literal(`component:${calleeArguments[0].value}`);
-        }
-      } else if (calleeName === 'moduleForModel') {
-        subject = j.literal(`model:${calleeArguments[0].value}`);
+  function addToBeforeEach(moduleInfo, expression) {
+    let beforeEachBody = moduleInfo.moduleBeforeEachBody;
+    if (!beforeEachBody) {
+      if (moduleInfo.moduleCallback) {
+        addHooksParam(moduleInfo);
       }
 
-      hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
+      let beforeEachBlockStatement = j.blockStatement([]);
+      let beforeEachExpression = j.expressionStatement(
+        j.callExpression(j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')), [
+          j.functionExpression(
+            null,
+            [
+              /* no arguments */
+            ],
+            beforeEachBlockStatement
+          ),
+        ])
+      );
+
+      beforeEachBody = moduleInfo.moduleBeforeEachBody = beforeEachBlockStatement.body;
+      let insertAt = moduleInfo.setupType ? 1 : 0;
+      moduleInfo.moduleCallbackBody.splice(insertAt, 0, beforeEachExpression);
     }
 
-    return [moduleName, options, setupIdentifier, subject, hasCustomSubject, isNestedModule];
+    beforeEachBody.push(expression);
   }
 
   function updateModuleForToNestedModule() {
-    const POSSIBLE_MODULES = [
-      { expression: { callee: { name: 'module' } } },
-      { expression: { callee: { name: 'moduleFor' } } },
-      { expression: { callee: { name: 'moduleForComponent' } } },
-      { expression: { callee: { name: 'moduleForModel' } } },
-    ];
-
-    function isModuleDefinition(nodePath) {
-      return POSSIBLE_MODULES.some(matcher => j.match(nodePath, matcher));
-    }
-
     const LIFE_CYCLE_METHODS = [
       { key: { name: 'before' }, value: { type: 'FunctionExpression' } },
       { key: { name: 'beforeEach' }, value: { type: 'FunctionExpression' } },
@@ -203,29 +245,30 @@ module.exports = function(file, api) {
     }
 
     function createModule(p) {
-      let [moduleName, options, setupType, subject, hasCustomSubject, isNestedModule] = parseModule(
-        p
-      );
+      let moduleInfo = new ModuleInfo(p);
 
-      if (isNestedModule) {
+      if (moduleInfo.isNestedModule) {
         return null;
       }
 
       let needsHooks = false;
       let moduleSetupExpression;
-      if (setupType) {
+      if (moduleInfo.setupType) {
         needsHooks = true;
         moduleSetupExpression = j.expressionStatement(
-          j.callExpression(j.identifier(setupType), [j.identifier('hooks')])
+          j.callExpression(j.identifier(moduleInfo.setupType), [j.identifier('hooks')])
         );
+        moduleInfo.moduleSetupExpression = moduleSetupExpression;
       }
 
       // Create the new `module(moduleName, function(hooks) {});` invocation
       let callback = j.functionExpression(
         null /* no function name */,
-        [j.identifier('hooks')],
+        [],
         j.blockStatement([moduleSetupExpression].filter(Boolean))
       );
+      moduleInfo.moduleCallbackBody = callback.body.body;
+      moduleInfo.moduleCallback = callback;
 
       function buildModule(moduleName, callback) {
         // using j.callExpression() builds this:
@@ -254,19 +297,18 @@ module.exports = function(file, api) {
         return node;
       }
 
-      let moduleInvocation = j.expressionStatement(buildModule(moduleName, callback));
+      let moduleInvocation = j.expressionStatement(buildModule(moduleInfo.moduleName, callback));
 
-      if (options) {
-        let customMethodBeforeEachBody, customMethodBeforeEachExpression;
-
-        options.properties.forEach(property => {
-          if (setupType) {
+      if (moduleInfo.moduleOptions) {
+        moduleInfo.moduleOptions.properties.forEach(property => {
+          if (moduleInfo.setupType) {
             let expressionCollection = j(property.value);
 
             updateGetOwnerThisUsage(expressionCollection);
             updateLookupCalls(expressionCollection);
             updateRegisterCalls(expressionCollection);
             updateInjectCalls(expressionCollection);
+            updateOnCalls(expressionCollection, moduleInfo);
           }
 
           if (isLifecycleHook(property)) {
@@ -287,27 +329,6 @@ module.exports = function(file, api) {
               return;
             }
 
-            if (!customMethodBeforeEachBody) {
-              needsHooks = true;
-              customMethodBeforeEachBody = j.blockStatement([]);
-              customMethodBeforeEachExpression = j.expressionStatement(
-                j.callExpression(
-                  j.memberExpression(j.identifier('hooks'), j.identifier('beforeEach')),
-                  [
-                    j.functionExpression(
-                      null,
-                      [
-                        /* no arguments */
-                      ],
-                      customMethodBeforeEachBody
-                    ),
-                  ]
-                )
-              );
-
-              callback.body.body.push(customMethodBeforeEachExpression);
-            }
-
             let methodAssignment = j.expressionStatement(
               j.assignmentExpression(
                 '=',
@@ -319,23 +340,24 @@ module.exports = function(file, api) {
             // preserve any comments that were present
             methodAssignment.comments = property.comments;
 
-            customMethodBeforeEachBody.body.push(methodAssignment);
+            addToBeforeEach(moduleInfo, methodAssignment);
           }
         });
 
-        if (setupType === 'setupRenderingTest') {
+        if (moduleInfo.setupType === 'setupRenderingTest') {
           processExpressionForRenderingTest(callback);
         } else {
-          processSubject(callback, subject);
+          processSubject(callback, moduleInfo.subjectContainerKey);
         }
       }
 
-      if (needsHooks === false) {
-        // nothing used the `hooks` argument, remove it
-        callback.params = [];
+      moduleInfo.moduleInvocation = moduleInvocation;
+
+      if (needsHooks === true) {
+        addHooksParam(moduleInfo);
       }
 
-      return [moduleInvocation, callback.body.body, setupType, subject, hasCustomSubject];
+      return moduleInfo;
     }
 
     function processExpressionForRenderingTest(testExpression) {
@@ -464,23 +486,20 @@ module.exports = function(file, api) {
     let programPath = root.get('program');
     let bodyPath = programPath.get('body');
 
-    let currentModuleCallbackBody, currentTestType, currentSubject, currentHasCustomSubject;
+    let currentModuleInfo;
     bodyPath.each(expressionPath => {
       let expression = expressionPath.node;
-      if (isModuleDefinition(expressionPath)) {
-        let result = createModule(expressionPath);
-        if (result === null) {
+      if (ModuleInfo.isModuleDefinition(expressionPath)) {
+        let moduleInfo = createModule(expressionPath);
+        if (moduleInfo === null) {
           return;
         }
-        expressionPath.replace(result[0]);
-        currentModuleCallbackBody = result[1];
-        currentTestType = result[2];
-        currentSubject = result[3];
-        currentHasCustomSubject = result[4];
-      } else if (currentModuleCallbackBody) {
+        currentModuleInfo = moduleInfo;
+        expressionPath.replace(moduleInfo.moduleInvocation);
+      } else if (currentModuleInfo) {
         // calling `path.replace()` essentially just removes
         expressionPath.replace();
-        currentModuleCallbackBody.push(expression);
+        currentModuleInfo.moduleCallbackBody.push(expression);
 
         let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
         if (isTest) {
@@ -488,14 +507,18 @@ module.exports = function(file, api) {
           updateLookupCalls(expressionCollection);
           updateRegisterCalls(expressionCollection);
           updateInjectCalls(expressionCollection);
+          updateOnCalls(expressionCollection, currentModuleInfo);
           // passing the specific function callback here, because `getOwner` is only
           // transformed if the call site's scope is the same as the expression passed
           updateGetOwnerThisUsage(j(expression.expression.arguments[1]));
 
-          if (currentTestType === 'setupRenderingTest') {
+          if (currentModuleInfo.setupType === 'setupRenderingTest') {
             processExpressionForRenderingTest(expression);
-          } else if (currentTestType === 'setupTest' && !currentHasCustomSubject) {
-            processSubject(expression, currentSubject);
+          } else if (
+            currentModuleInfo.setupType === 'setupTest' &&
+            !currentModuleInfo.hasCustomSubjectImplementation
+          ) {
+            processSubject(expression, currentModuleInfo.subjectContainerKey);
           }
         }
       }
@@ -540,6 +563,79 @@ module.exports = function(file, api) {
         let thisDotOwner = j.memberExpression(j.thisExpression(), j.identifier('owner'));
         path.replace(j.memberExpression(thisDotOwner, path.value.property));
       });
+  }
+
+  function updateOnCalls(ctx, moduleInfo) {
+    let usages = ctx.find(j.CallExpression, {
+      callee: {
+        type: 'MemberExpression',
+        object: {
+          type: 'ThisExpression',
+        },
+        property: {
+          name: 'on',
+        },
+      },
+    });
+
+    usages.forEach(p => {
+      let actionName = p.node.arguments[0].value;
+      let property = j.identifier(actionName);
+
+      if (!actionName.match(/^[a-zA-Z_][a-zA-Z0-9]+$/)) {
+        // if not, use `this['property-name']`
+        property = j.literal(actionName);
+      }
+
+      let assignment = j.assignmentExpression(
+        '=',
+        j.memberExpression(
+          j.memberExpression(j.thisExpression(), j.identifier('actions')),
+          property
+        ),
+        p.node.arguments[1]
+      );
+      p.replace(assignment);
+    });
+
+    if (usages.size() > 0 && !moduleInfo.hasSendFunctionInBeforeEach) {
+      moduleInfo.hasSendFunctionInBeforeEach = true;
+
+      addToBeforeEach(
+        moduleInfo,
+        j.expressionStatement(
+          j.assignmentExpression(
+            '=',
+            j.memberExpression(j.thisExpression(), j.identifier('actions')),
+            j.objectExpression([])
+          )
+        )
+      );
+
+      addToBeforeEach(
+        moduleInfo,
+        j.expressionStatement(
+          j.assignmentExpression(
+            '=',
+            j.memberExpression(j.thisExpression(), j.identifier('send')),
+            j.arrowFunctionExpression(
+              [j.identifier('actionName'), j.restElement(j.identifier('args'))],
+              j.callExpression(
+                j.memberExpression(
+                  j.memberExpression(
+                    j.memberExpression(j.thisExpression(), j.identifier('actions')),
+                    j.identifier('actionName'),
+                    true
+                  ),
+                  j.identifier('apply')
+                ),
+                [j.thisExpression(), j.identifier('args')]
+              )
+            )
+          )
+        )
+      );
+    }
   }
 
   function updateInjectCalls(ctx) {
