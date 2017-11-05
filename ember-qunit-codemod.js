@@ -309,6 +309,12 @@ module.exports = function(file, api) {
             updateRegisterCalls(expressionCollection);
             updateInjectCalls(expressionCollection);
             updateOnCalls(expressionCollection, moduleInfo);
+
+            if (j.match(property, { key: { name: 'resolver' } })) {
+              let setupExpression = moduleInfo.moduleSetupExpression;
+              setupExpression.expression.arguments.push(j.objectExpression([property]));
+              return;
+            }
           }
 
           if (isLifecycleHook(property)) {
