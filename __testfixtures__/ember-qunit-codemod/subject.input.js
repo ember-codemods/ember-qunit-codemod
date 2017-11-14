@@ -42,6 +42,7 @@ moduleForModel('foo', 'Unit | Model | Foo', {
 
 test('has some thing', function (assert) {
   let subject = this.subject();
+  let store = this.store();
 });
 
 moduleForComponent('foo-bar', 'Unit | Component | FooBar', {
