@@ -49,6 +49,7 @@ module.exports = function(file, api) {
         hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
       }
 
+      this.originalSetupType = calleeName;
       this.moduleName = moduleName;
       this.moduleOptions = options;
       this.setupType = setupIdentifier;
@@ -353,7 +354,8 @@ module.exports = function(file, api) {
         if (moduleInfo.setupType === 'setupRenderingTest') {
           processExpressionForRenderingTest(callback);
         } else {
-          processSubject(callback, moduleInfo.subjectContainerKey);
+          processSubject(callback, moduleInfo);
+          processStore(callback, moduleInfo);
         }
       }
 
@@ -408,7 +410,42 @@ module.exports = function(file, api) {
         });
     }
 
-    function processSubject(testExpression, subject) {
+    function processStore(testExpression, moduleInfo) {
+      if (moduleInfo.originalSetupType !== 'moduleForModel') {
+        return;
+      }
+
+      let thisDotStoreUsage = j(testExpression).find(j.CallExpression, {
+        callee: {
+          type: 'MemberExpression',
+          object: {
+            type: 'ThisExpression',
+          },
+          property: {
+            name: 'store',
+          },
+        },
+      });
+
+      if (thisDotStoreUsage.size() === 0) {
+        return;
+      }
+
+      thisDotStoreUsage.forEach(p => {
+        p.replace(
+          j.callExpression(
+            j.memberExpression(
+              j.memberExpression(j.thisExpression(), j.identifier('owner')),
+              j.identifier('lookup')
+            ),
+            [j.literal('service:store')]
+          )
+        );
+      });
+    }
+
+    function processSubject(testExpression, moduleInfo) {
+      let subject = moduleInfo.subjectContainerKey;
       let thisDotSubjectUsage = j(testExpression).find(j.CallExpression, {
         callee: {
           type: 'MemberExpression',
@@ -517,6 +554,7 @@ module.exports = function(file, api) {
           // passing the specific function callback here, because `getOwner` is only
           // transformed if the call site's scope is the same as the expression passed
           updateGetOwnerThisUsage(j(expression.expression.arguments[1]));
+          processStore(expression, currentModuleInfo);
 
           if (currentModuleInfo.setupType === 'setupRenderingTest') {
             processExpressionForRenderingTest(expression);
@@ -524,7 +562,7 @@ module.exports = function(file, api) {
             currentModuleInfo.setupType === 'setupTest' &&
             !currentModuleInfo.hasCustomSubjectImplementation
           ) {
-            processSubject(expression, currentModuleInfo.subjectContainerKey);
+            processSubject(expression, currentModuleInfo);
           }
         }
       }
