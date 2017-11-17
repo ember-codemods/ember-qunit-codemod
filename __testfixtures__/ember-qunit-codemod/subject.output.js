@@ -44,7 +44,6 @@ module('Unit | Model | Foo', function(hooks) {
 
   test('has some thing', function (assert) {
     let subject = run(() => this.owner.lookup('service:store').createRecord('foo'));
-    let store = this.owner.lookup('service:store');
   });
 });
 
