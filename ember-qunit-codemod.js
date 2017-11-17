@@ -17,7 +17,7 @@ module.exports = function(file, api) {
     constructor(p) {
       let calleeName = p.node.expression.callee.name;
       // Find the moduleName and the module's options
-      let moduleName, subject, options, hasCustomSubject, isNestedModule;
+      let moduleName, subject, options, hasCustomSubject, hasIntegrationFlag, isNestedModule;
       let calleeArguments = p.node.expression.arguments.slice();
       let lastArgument = calleeArguments[calleeArguments.length - 1];
       if (lastArgument.type === 'ObjectExpression') {
@@ -33,20 +33,19 @@ module.exports = function(file, api) {
 
       let setupIdentifier = calleeName === 'module' ? null : 'setupTest';
       if (options) {
-        let hasIntegration = options.properties.some(p => p.key.name === 'integration');
-
-        if (calleeName === `moduleForComponent`) {
-          if (hasIntegration) {
-            setupIdentifier = 'setupRenderingTest';
-            subject = null;
-          } else {
-            subject = j.literal(`component:${calleeArguments[0].value}`);
-          }
-        } else if (calleeName === 'moduleForModel') {
-          subject = j.literal(`model:${calleeArguments[0].value}`);
-        }
-
+        hasIntegrationFlag = options.properties.some(p => p.key.name === 'integration');
         hasCustomSubject = options.properties.some(p => p.key.name === 'subject');
+      }
+
+      if (calleeName === `moduleForComponent`) {
+        if (hasIntegrationFlag) {
+          setupIdentifier = 'setupRenderingTest';
+          subject = null;
+        } else {
+          subject = j.literal(`component:${calleeArguments[0].value}`);
+        }
+      } else if (calleeName === 'moduleForModel') {
+        subject = j.literal(`model:${calleeArguments[0].value}`);
       }
 
       this.originalSetupType = calleeName;
