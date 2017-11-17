@@ -387,7 +387,7 @@ module.exports = function(file, api) {
       });
 
       ensureImportWithSpecifiers({
-        source: 'ember-test-helpers',
+        source: '@ember/test-helpers',
         anchor: 'ember-qunit',
         specifiers,
       });
@@ -735,7 +735,7 @@ module.exports = function(file, api) {
       let importedName;
 
       ensureImportWithSpecifiers({
-        source: 'ember-test-helpers',
+        source: '@ember/test-helpers',
         anchor: 'ember-qunit',
         specifiers: ['settled'],
       });

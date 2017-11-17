@@ -1,6 +1,6 @@
 import { module, test } from 'qunit';
 import { setupTest, setupRenderingTest } from 'ember-qunit';
-import { render } from 'ember-test-helpers';
+import { render } from '@ember/test-helpers';
 import hbs from 'htmlbars-inline-precompile';
 import engineResolverFor from 'ember-engines/test-support/engine-resolver-for';
 
