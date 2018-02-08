@@ -26,6 +26,8 @@ Usage
 jscodeshift -t https://rawgit.com/rwjblue/ember-qunit-codemod/master/ember-qunit-codemod.js ./tests/
 ```
 
+This codemod can be used in conjunction with [ember-test-helpers-codemod](https://github.com/simonihmig/ember-test-helpers-codemod).
+
 Credit
 ------------------------------------------------------------------------------
 ember-qunit-codemod is heavily inspired by the work done in [qunit-dom-codemod](https://github.com/simplabs/qunit-dom-codemod)
