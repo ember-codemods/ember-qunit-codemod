@@ -25,7 +25,7 @@
     "jscodeshift": "^0.3.32"
   },
   "devDependencies": {
-    "babel-preset-env": "^1.6.0",
+    "babel-preset-env": "^1.6.1",
     "eslint": "^4.1.0",
     "eslint-config-prettier": "^2.6.0",
     "eslint-plugin-prettier": "^2.3.1",
