@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
@@ -65,7 +67,12 @@ module.exports = function(file, api) {
     }
   }
 
-  function ensureImportWithSpecifiers({ source, specifiers, anchor, positionMethod }) {
+  function ensureImportWithSpecifiers(options) {
+    let source = options.source;
+    let specifiers = options.specifiers;
+    let anchor = options.anchor;
+    let positionMethod = options.positionMethod;
+
     let importStatement = ensureImport(source, anchor, positionMethod);
     let combinedSpecifiers = new Set(specifiers);
 
@@ -81,7 +88,9 @@ module.exports = function(file, api) {
     );
   }
 
-  function ensureImport(source, anchor, method = 'insertAfter') {
+  function ensureImport(source, anchor, method) {
+    method = method || 'insertAfter';
+
     let desiredImport = root.find(j.ImportDeclaration, { source: { value: source } });
     if (desiredImport.size() > 0) {
       return desiredImport;
@@ -112,7 +121,7 @@ module.exports = function(file, api) {
     // Replace old with new test helpers imports
     emberQUnitImports
       .find(j.ImportSpecifier)
-      .filter(p => migrateToQUnitImport.includes(p.node.imported.name))
+      .filter(p => migrateToQUnitImport.indexOf(p.node.imported.name) !== -1)
       .forEach(p => specifiers.add(p.node.imported.name))
       .remove();
 
@@ -373,7 +382,7 @@ module.exports = function(file, api) {
             callback.body.body.push(lifecycleStatement);
           } else {
             const IGNORED_PROPERTIES = ['integration', 'needs', 'unit'];
-            if (IGNORED_PROPERTIES.includes(property.key.name)) {
+            if (IGNORED_PROPERTIES.indexOf(property.key.name) !== -1) {
               return;
             }
 
@@ -417,8 +426,8 @@ module.exports = function(file, api) {
           },
         })
         .map(path => path.parent)
-        .replaceWith(({ node }) => {
-          let body = node.expression.arguments[0].body;
+        .replaceWith(p => {
+          let body = p.node.expression.arguments[0].body;
           return body.body;
         });
 
@@ -571,8 +580,10 @@ module.exports = function(file, api) {
 
       thisDotSubjectUsage.forEach(p => {
         let options = p.node.arguments[0];
-        let [subjectType, subjectName] = subject.value.split(':');
-        let isSingletonSubject = !['model', 'component'].includes(subjectType);
+        let split = subject.value.split(':');
+        let subjectType = split[0];
+        let subjectName = split[1];
+        let isSingletonSubject = ['model', 'component'].indexOf(subjectType) === -1;
 
         // if we don't have `options` and the type is a singleton type
         // use `this.owner.lookup(subject)`
