@@ -1,8 +1,11 @@
 'use strict';
 
 module.exports = function(file, api) {
+  const recast = require('recast');
+  let parser = require('recast/parsers/typescript');
+
   const j = api.jscodeshift;
-  const root = j(file.source);
+  const root = j(recast.parse(file.source, { parser }));
 
   const POSSIBLE_MODULES = [
     { expression: { callee: { name: 'module' } } },
