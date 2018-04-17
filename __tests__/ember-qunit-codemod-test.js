@@ -11,11 +11,12 @@ const fixtureFolder = `${__dirname}/../__testfixtures__/ember-qunit-codemod`;
 describe('ember-qunit-codemod', function() {
   fs
     .readdirSync(fixtureFolder)
-    .filter(filename => /\.input\.js$/.test(filename))
+    .filter(filename => /\.input\.[jt]s$/.test(filename))
     .forEach(filename => {
-      let testName = filename.replace('.input.js', '');
-      let inputPath = path.join(fixtureFolder, `${testName}.input.js`);
-      let outputPath = path.join(fixtureFolder, `${testName}.output.js`);
+      let extension = path.extname(filename);
+      let testName = filename.replace(`.input${extension}`, '');
+      let inputPath = path.join(fixtureFolder, `${testName}.input${extension}`);
+      let outputPath = path.join(fixtureFolder, `${testName}.output${extension}`);
 
       describe(testName, function() {
         it('transforms correctly', function() {
