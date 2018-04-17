@@ -1,9 +1,16 @@
 'use strict';
 
 module.exports = function(file, api) {
-  let parser = require('recast/parsers/typescript');
+  let j = api.jscodeshift;
+  try {
+    let parser = require('recast/parsers/typescript');
 
-  const j = api.jscodeshift.withParser(parser);
+    j = api.jscodeshift.withParser(parser);
+  } catch (e) {
+    // eslint-disable-next-line
+    console.log('Could not load typescript aware parser, falling back to standard recast parser...');
+  }
+
   const root = j(file.source);
 
   const POSSIBLE_MODULES = [
