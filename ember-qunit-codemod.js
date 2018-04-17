@@ -26,7 +26,11 @@ module.exports = function(file, api) {
       if (lastArgument.type === 'ObjectExpression') {
         options = calleeArguments.pop();
       }
-      if (calleeArguments[1] && j.match(calleeArguments[1], { type: 'FunctionExpression' })) {
+      if (
+        calleeArguments[1] &&
+        (j.match(calleeArguments[1], { type: 'FunctionExpression' }) ||
+          j.match(calleeArguments[1], { type: 'ArrowFunctionExpression' }))
+      ) {
         isNestedModule = true;
         moduleName = calleeArguments[0];
       } else {
