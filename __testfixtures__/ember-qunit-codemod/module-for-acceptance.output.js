@@ -88,3 +88,59 @@ module('Acceptance | AndThenRoute', function(hooks) {
     assert.equal(currenURL(), 'other-route');
   });
 });
+
+module('something', function(hooks) {
+  hooks.beforeEach(function() {
+    console.log('outer beforeEach');
+  });
+
+  hooks.afterEach(function() {
+    console.log('outer afterEach');
+  });
+
+  module('nested', function(hooks) {
+    setupApplicationTest(hooks);
+
+    hooks.beforeEach(function() {
+      console.log('nested beforeEach');
+    });
+
+    hooks.afterEach(function() {
+      console.log('nested afterEach');
+    });
+
+    test('foo', async function(assert) {
+      assert.expect(2);
+      await visit('my-route');
+      assert.equal(currenURL(), 'my-route');
+    });
+  });
+});
+
+module('other thing', function(hooks) {
+  hooks.beforeEach(function() {
+    console.log('outer beforeEach');
+  });
+
+  hooks.afterEach(function() {
+    console.log('outer afterEach');
+  });
+
+  module('nested', function(hooks) {
+    setupApplicationTest(hooks);
+
+    hooks.beforeEach(function() {
+      console.log('nested beforeEach');
+    });
+
+    hooks.afterEach(function() {
+      console.log('nested afterEach');
+    });
+
+    test('foo', async function(assert) {
+      assert.expect(2);
+      await visit('my-route');
+      assert.equal(currenURL(), 'my-route');
+    });
+  });
+});

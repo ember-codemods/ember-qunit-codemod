@@ -7,7 +7,7 @@ moduleForAcceptance('Acceptance | MyRoute', {
   beforeEach() {
     // my comment
     setupTestHelper();
-  }
+  },
 });
 
 test('it happens', function() {
@@ -20,7 +20,7 @@ test('it happens', function() {
 moduleForAcceptance('Acceptance | ES5 MyRoute', {
   beforeEach: function() {
     setupTestHelper();
-  }
+  },
 });
 
 test('it happens with es5 function', function() {
@@ -34,7 +34,7 @@ test('it happens with es5 function', function() {
 });
 
 moduleForAcceptance('Acceptance | OtherRoute', {
-  beforeEach() {}
+  beforeEach() {},
 });
 
 test('it happens with find', function() {
@@ -100,5 +100,62 @@ test('it works with assert.expect', function() {
   });
   andThen(function() {
     assert.equal(currenURL(), 'other-route');
+  });
+});
+
+module(
+  'something',
+  {
+    beforeEach() {
+      console.log('outer beforeEach');
+    },
+    afterEach() {
+      console.log('outer afterEach');
+    },
+  },
+  function() {
+    moduleForAcceptance('nested', {
+      beforeEach() {
+        console.log('nested beforeEach');
+      },
+      afterEach() {
+        console.log('nested afterEach');
+      },
+    });
+
+    test('foo', function(assert) {
+      assert.expect(2);
+      visit('my-route');
+      andThen(function() {
+        assert.equal(currenURL(), 'my-route');
+      });
+    });
+  }
+);
+
+module('other thing', function(hooks) {
+  hooks.beforeEach(function() {
+    console.log('outer beforeEach');
+  });
+
+  hooks.afterEach(function() {
+    console.log('outer afterEach');
+  });
+
+  moduleForAcceptance('nested', {
+    beforeEach() {
+      console.log('nested beforeEach');
+    },
+    afterEach() {
+      console.log('nested afterEach');
+    },
+  });
+
+  test('foo', function(assert) {
+    assert.expect(2);
+    visit('my-route');
+    andThen(function() {
+      assert.equal(currenURL(), 'my-route');
+    });
   });
 });
