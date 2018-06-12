@@ -9,8 +9,7 @@ const EmberQUnitTransform = require('../ember-qunit-codemod');
 const fixtureFolder = `${__dirname}/../__testfixtures__/ember-qunit-codemod`;
 
 describe('ember-qunit-codemod', function() {
-  fs
-    .readdirSync(fixtureFolder)
+  fs.readdirSync(fixtureFolder)
     .filter(filename => /\.input\.[jt]s$/.test(filename))
     .forEach(filename => {
       let extension = path.extname(filename);
