@@ -1,7 +1,16 @@
 'use strict';
 
 module.exports = function(file, api) {
-  const j = api.jscodeshift;
+  let j = api.jscodeshift;
+  try {
+    let parser = require('recast/parsers/typescript');
+
+    j = api.jscodeshift.withParser(parser);
+  } catch (e) {
+    // eslint-disable-next-line
+    console.log('Could not load typescript aware parser, falling back to standard recast parser...');
+  }
+
   const root = j(file.source);
 
   const POSSIBLE_MODULES = [
@@ -290,9 +299,13 @@ module.exports = function(file, api) {
   function updateModuleForToNestedModule() {
     const LIFE_CYCLE_METHODS = [
       { key: { name: 'before' }, value: { type: 'FunctionExpression' } },
+      { type: 'ObjectMethod', key: { name: 'before' } },
       { key: { name: 'beforeEach' }, value: { type: 'FunctionExpression' } },
+      { type: 'ObjectMethod', key: { name: 'beforeEach' } },
       { key: { name: 'afterEach' }, value: { type: 'FunctionExpression' } },
+      { type: 'ObjectMethod', key: { name: 'afterEach' } },
       { key: { name: 'after' }, value: { type: 'FunctionExpression' } },
+      { type: 'ObjectMethod', key: { name: 'after' } },
     ];
 
     function isLifecycleHook(nodePath) {
@@ -356,8 +369,13 @@ module.exports = function(file, api) {
 
       if (moduleInfo.moduleOptions) {
         moduleInfo.moduleOptions.properties.forEach(property => {
+          let value =
+            property.type === 'ObjectMethod'
+              ? j.functionExpression(null, property.params, property.body)
+              : property.value;
+
           if (moduleInfo.setupType) {
-            let expressionCollection = j(property.value);
+            let expressionCollection = j(value);
 
             updateGetOwnerThisUsage(expressionCollection);
             updateLookupCalls(expressionCollection);
@@ -375,9 +393,7 @@ module.exports = function(file, api) {
           if (isLifecycleHook(property)) {
             needsHooks = true;
             let lifecycleStatement = j.expressionStatement(
-              j.callExpression(j.memberExpression(j.identifier('hooks'), property.key), [
-                property.value,
-              ])
+              j.callExpression(j.memberExpression(j.identifier('hooks'), property.key), [value])
             );
 
             // preserve any comments that were present
@@ -394,7 +410,7 @@ module.exports = function(file, api) {
               j.assignmentExpression(
                 '=',
                 j.memberExpression(j.thisExpression(), property.key),
-                property.value
+                value
               )
             );
 

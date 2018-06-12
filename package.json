@@ -4,35 +4,43 @@
   "description": "codemod script for ember-qunit",
   "keywords": [
     "codemod",
-    "qunit",
-    "qunit-dom"
+    "qunit"
   ],
   "homepage": "https://github.com/rwjblue/ember-qunit-codemod#readme",
   "bugs": {
     "url": "https://github.com/rwjblue/ember-qunit-codemod/issues"
   },
-  "license": "MIT",
-  "author": "Robert Jackson <me@rwjblue.com>",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rwjblue/ember-qunit-codemod.git"
   },
+  "license": "MIT",
+  "author": "Robert Jackson <me@rwjblue.com>",
+  "bin": "./bin/cli.js",
   "scripts": {
     "lint": "eslint .",
     "test": "jest"
   },
   "dependencies": {
-    "jscodeshift": "^0.3.32"
+    "@babel/parser": "^7.0.0-beta.48",
+    "chalk": "^2.4.1",
+    "execa": "^0.10.0",
+    "jscodeshift": "^0.5.1",
+    "recast": "^0.15.0"
   },
   "devDependencies": {
     "babel-preset-env": "^1.7.0",
+    "broccoli-test-helper": "^1.2.0",
+    "co": "^4.6.0",
     "eslint": "^4.19.1",
     "eslint-config-prettier": "^2.9.0",
     "eslint-plugin-prettier": "^2.6.0",
-    "jest": "^22.4.4",
-    "prettier": "^1.12.1"
+    "jest": "^23.1.0",
+    "jest-diff": "^23.0.1",
+    "jest-matcher-utils": "^23.0.1",
+    "prettier": "^1.13.5"
   },
   "engines": {
-    "node": ">=4"
+    "node": ">=6"
   }
 }
