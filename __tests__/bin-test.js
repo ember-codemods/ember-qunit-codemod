@@ -85,6 +85,6 @@ describe('bin acceptance', function() {
 
       files.forEach(fileName => expect(fileName).toMatchFixture(input, output));
     }),
-    20000
+    60000
   );
 });
