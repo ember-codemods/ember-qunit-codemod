@@ -8,7 +8,7 @@ const path = require('path');
 try {
   let transformPath = path.join(__dirname, '/../ember-qunit-codemod.js');
   let targetDir = process.argv[2];
-  execa('jscodeshift', ['-t', transformPath, targetDir], {
+  execa('jscodeshift', ['-t', transformPath, '--extensions', 'js,ts', targetDir], {
     stdio: 'inherit',
     env: process.env,
   });
