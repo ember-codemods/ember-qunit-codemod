@@ -1,6 +1,6 @@
 {
   "name": "ember-qunit-codemod",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "codemod script for ember-qunit",
   "keywords": [
     "codemod",
