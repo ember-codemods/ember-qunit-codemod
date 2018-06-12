@@ -8,7 +8,9 @@ module.exports = function(file, api) {
     j = api.jscodeshift.withParser(parser);
   } catch (e) {
     // eslint-disable-next-line
-    console.log('Could not load typescript aware parser, falling back to standard recast parser...');
+    console.log(
+      'Could not load typescript aware parser, falling back to standard recast parser...'
+    );
   }
 
   const root = j(file.source);
@@ -29,19 +31,35 @@ module.exports = function(file, api) {
     constructor(p) {
       let calleeName = p.node.expression.callee.name;
       // Find the moduleName and the module's options
-      let moduleName, subject, options, hasCustomSubject, hasIntegrationFlag, isNestedModule;
+      let moduleName,
+        subject,
+        options,
+        hasCustomSubject,
+        hasIntegrationFlag,
+        isNestedModule,
+        moduleCallback,
+        moduleCallbackBody;
       let calleeArguments = p.node.expression.arguments.slice();
       let lastArgument = calleeArguments[calleeArguments.length - 1];
       if (lastArgument.type === 'ObjectExpression') {
         options = calleeArguments.pop();
       }
-      if (
+
+      if (calleeArguments.length === 3) {
+        isNestedModule = true;
+        moduleName = calleeArguments[0];
+        options = calleeArguments[1];
+        moduleCallback = calleeArguments[2];
+        moduleCallbackBody = moduleCallback.body.body;
+      } else if (
         calleeArguments[1] &&
         (j.match(calleeArguments[1], { type: 'FunctionExpression' }) ||
           j.match(calleeArguments[1], { type: 'ArrowFunctionExpression' }))
       ) {
         isNestedModule = true;
         moduleName = calleeArguments[0];
+        moduleCallback = calleeArguments[1];
+        moduleCallbackBody = moduleCallback.body.body;
       } else {
         moduleName = calleeArguments[1] || calleeArguments[0];
         subject = calleeArguments[0];
@@ -76,7 +94,8 @@ module.exports = function(file, api) {
       this.isNestedModule = isNestedModule;
 
       this.moduleInvocation = null;
-      this.moduleCallbackBody = null;
+      this.moduleCallbackBody = moduleCallbackBody;
+      this.moduleCallback = moduleCallback;
     }
   }
 
@@ -315,12 +334,9 @@ module.exports = function(file, api) {
     function createModule(p) {
       let moduleInfo = new ModuleInfo(p);
 
-      if (moduleInfo.isNestedModule) {
-        return null;
-      }
-
       let needsHooks = false;
       let moduleSetupExpression;
+
       if (moduleInfo.setupType) {
         needsHooks = true;
         moduleSetupExpression = j.expressionStatement(
@@ -329,15 +345,17 @@ module.exports = function(file, api) {
         moduleInfo.moduleSetupExpression = moduleSetupExpression;
       }
 
-      // Create the new `module(moduleName, function(hooks) {});` invocation
-      let callback = j.functionExpression(
-        null /* no function name */,
-        [],
-        j.blockStatement([moduleSetupExpression].filter(Boolean))
-      );
-      moduleInfo.moduleCallbackBody = callback.body.body;
-      moduleInfo.moduleCallback = callback;
-
+      let callback = moduleInfo.moduleCallback;
+      if (!callback) {
+        // Create the new `module(moduleName, function(hooks) {});` invocation
+        callback = j.functionExpression(
+          null /* no function name */,
+          [],
+          j.blockStatement([moduleSetupExpression].filter(Boolean))
+        );
+        moduleInfo.moduleCallbackBody = callback.body.body;
+        moduleInfo.moduleCallback = callback;
+      }
       function buildModule(moduleName, callback) {
         // using j.callExpression() builds this:
 
@@ -368,6 +386,13 @@ module.exports = function(file, api) {
       let moduleInvocation = j.expressionStatement(buildModule(moduleInfo.moduleName, callback));
 
       if (moduleInfo.moduleOptions) {
+        let insertLocation;
+        if (moduleInfo.isNestedModule) {
+          insertLocation = 0;
+        } else {
+          callback.body.body.length;
+        }
+
         moduleInfo.moduleOptions.properties.forEach(property => {
           let value =
             property.type === 'ObjectMethod'
@@ -399,7 +424,12 @@ module.exports = function(file, api) {
             // preserve any comments that were present
             lifecycleStatement.comments = property.comments;
 
-            callback.body.body.push(lifecycleStatement);
+            if (moduleInfo.isNestedModule) {
+              callback.body.body.splice(insertLocation, 0, lifecycleStatement);
+              insertLocation++;
+            } else {
+              callback.body.body.push(lifecycleStatement);
+            }
           } else {
             const IGNORED_PROPERTIES = ['integration', 'needs', 'unit'];
             if (IGNORED_PROPERTIES.indexOf(property.key.name) !== -1) {
@@ -664,49 +694,60 @@ module.exports = function(file, api) {
       });
     }
 
+    function processBody(bodyPath) {
+      let currentModuleInfo;
+      bodyPath.each(expressionPath => {
+        let expression = expressionPath.node;
+        if (ModuleInfo.isModuleDefinition(expressionPath)) {
+          let moduleInfo = createModule(expressionPath);
+          expressionPath.replace(moduleInfo.moduleInvocation);
+
+          if (moduleInfo.isNestedModule) {
+            processBody(
+              j(moduleInfo.moduleCallback)
+                .get('body')
+                .get('body')
+            );
+            return;
+          }
+
+          currentModuleInfo = moduleInfo;
+        } else if (currentModuleInfo) {
+          // calling `path.replace()` essentially just removes
+          expressionPath.replace();
+          currentModuleInfo.moduleCallbackBody.push(expression);
+
+          let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
+          if (isTest) {
+            let expressionCollection = j(expression);
+            updateLookupCalls(expressionCollection);
+            updateRegisterCalls(expressionCollection);
+            updateInjectCalls(expressionCollection);
+            updateOnCalls(expressionCollection, currentModuleInfo);
+            // passing the specific function callback here, because `getOwner` is only
+            // transformed if the call site's scope is the same as the expression passed
+            updateGetOwnerThisUsage(j(expression.expression.arguments[1]));
+            processStore(expression, currentModuleInfo);
+
+            if (currentModuleInfo.setupType === 'setupApplicationTest') {
+              processExpressionForApplicationTest(expression);
+            } else if (currentModuleInfo.setupType === 'setupRenderingTest') {
+              processExpressionForRenderingTest(expression);
+            } else if (
+              currentModuleInfo.setupType === 'setupTest' &&
+              !currentModuleInfo.hasCustomSubjectImplementation
+            ) {
+              processSubject(expression, currentModuleInfo);
+            }
+          }
+        }
+      });
+    }
+
     let programPath = root.get('program');
     let bodyPath = programPath.get('body');
 
-    let currentModuleInfo;
-    bodyPath.each(expressionPath => {
-      let expression = expressionPath.node;
-      if (ModuleInfo.isModuleDefinition(expressionPath)) {
-        let moduleInfo = createModule(expressionPath);
-        if (moduleInfo === null) {
-          return;
-        }
-        currentModuleInfo = moduleInfo;
-        expressionPath.replace(moduleInfo.moduleInvocation);
-      } else if (currentModuleInfo) {
-        // calling `path.replace()` essentially just removes
-        expressionPath.replace();
-        currentModuleInfo.moduleCallbackBody.push(expression);
-
-        let isTest = j.match(expression, { expression: { callee: { name: 'test' } } });
-        if (isTest) {
-          let expressionCollection = j(expression);
-          updateLookupCalls(expressionCollection);
-          updateRegisterCalls(expressionCollection);
-          updateInjectCalls(expressionCollection);
-          updateOnCalls(expressionCollection, currentModuleInfo);
-          // passing the specific function callback here, because `getOwner` is only
-          // transformed if the call site's scope is the same as the expression passed
-          updateGetOwnerThisUsage(j(expression.expression.arguments[1]));
-          processStore(expression, currentModuleInfo);
-
-          if (currentModuleInfo.setupType === 'setupApplicationTest') {
-            processExpressionForApplicationTest(expression);
-          } else if (currentModuleInfo.setupType === 'setupRenderingTest') {
-            processExpressionForRenderingTest(expression);
-          } else if (
-            currentModuleInfo.setupType === 'setupTest' &&
-            !currentModuleInfo.hasCustomSubjectImplementation
-          ) {
-            processSubject(expression, currentModuleInfo);
-          }
-        }
-      }
-    });
+    processBody(bodyPath);
   }
 
   function updateLookupCalls(ctx) {
