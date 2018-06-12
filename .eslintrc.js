@@ -11,11 +11,7 @@ module.exports = {
     es6: true,
   },
   rules: {
-    'prettier/prettier': ['error', {
-      singleQuote: true,
-      trailingComma: 'es5',
-      printWidth: 100,
-    }],
+    'prettier/prettier': 'error',
   },
   overrides: [
     {
