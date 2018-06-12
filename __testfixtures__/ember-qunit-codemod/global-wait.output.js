@@ -10,4 +10,3 @@ module('something', function(hooks) {
     wait().then(() => assert.ok(true));
   });
 });
-
