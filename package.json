@@ -4,8 +4,7 @@
   "description": "codemod script for ember-qunit",
   "keywords": [
     "codemod",
-    "qunit",
-    "qunit-dom"
+    "qunit"
   ],
   "homepage": "https://github.com/rwjblue/ember-qunit-codemod#readme",
   "bugs": {
