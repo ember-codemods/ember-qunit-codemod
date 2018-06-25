@@ -3,6 +3,7 @@
   "version": "1.0.1",
   "description": "codemod script for ember-qunit",
   "keywords": [
+    "codemod-cli",
     "codemod",
     "qunit"
   ],
@@ -19,25 +20,17 @@
   "bin": "./bin/cli.js",
   "scripts": {
     "lint": "eslint .",
-    "test": "jest"
+    "test": "codemod-cli test",
+    "update-docs": "codemod-cli update-docs"
   },
   "dependencies": {
-    "@babel/parser": "^7.0.0-beta.48",
-    "chalk": "^2.4.1",
-    "execa": "^0.10.0",
-    "jscodeshift": "^0.5.1",
-    "recast": "^0.15.0"
+    "codemod-cli": "^0.2.0"
   },
   "devDependencies": {
-    "babel-preset-env": "^1.7.0",
-    "broccoli-test-helper": "^1.2.0",
-    "co": "^4.6.0",
     "eslint": "^5.0.1",
     "eslint-config-prettier": "^2.9.0",
     "eslint-plugin-prettier": "^2.6.0",
     "jest": "^23.1.0",
-    "jest-diff": "^23.0.1",
-    "jest-matcher-utils": "^23.0.1",
     "prettier": "^1.13.5"
   },
   "engines": {
