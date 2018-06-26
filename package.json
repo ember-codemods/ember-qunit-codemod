@@ -24,7 +24,7 @@
     "update-docs": "codemod-cli update-docs"
   },
   "dependencies": {
-    "codemod-cli": "^0.2.0"
+    "codemod-cli": "^0.2.1"
   },
   "devDependencies": {
     "eslint": "^5.0.1",

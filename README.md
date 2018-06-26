@@ -10,12 +10,12 @@ This codemod can be used in conjunction with [ember-test-helpers-codemod](https:
 To run a specific codemod from this project, you would run the following:
 
 ```
-npx special-project <TRANSFORM NAME> path/of/files/ or/some**/*glob.js
+npx ember-qunit-codemod convert-module-for-to-setup-test path/of/files/ or/some**/*glob.js
 
 # or
 
 yarn global add special-project
-special-project <TRANSFORM NAME> path/of/files/ or/some**/*glob.js
+ember-qunit-codemod convert-module-for-to-setup-test path/of/files/ or/some**/*glob.js
 ```
 
 ## Transforms
