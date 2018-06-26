@@ -3,19 +3,42 @@
 This codemod is intended to automatically convert your projects from the older
 `moduleFor*` syntax of `ember-qunit@2` to the newer syntax proposed by [emberjs/rfcs#232](https://github.com/emberjs/rfcs/blob/master/text/0232-simplify-qunit-testing-api.md).
 
-## Installation
-
-```sh
-npm install -g ember-qunit-codemod
-```
+This codemod can be used in conjunction with [ember-test-helpers-codemod](https://github.com/simonihmig/ember-test-helpers-codemod).
 
 ## Usage
 
-```sh
-ember-qunit-codemod ./tests/
+To run a specific codemod from this project, you would run the following:
+
+```
+npx special-project <TRANSFORM NAME> path/of/files/ or/some**/*glob.js
+
+# or
+
+yarn global add special-project
+special-project <TRANSFORM NAME> path/of/files/ or/some**/*glob.js
 ```
 
-This codemod can be used in conjunction with [ember-test-helpers-codemod](https://github.com/simonihmig/ember-test-helpers-codemod).
+## Transforms
+
+<!--TRANSFORMS_START-->
+* [convert-module-for-to-setup-test](transforms/convert-module-for-to-setup-test/README.md)
+<!--TRANSFORMS_END-->
+
+## Contributing
+
+### Installation
+
+* clone the repo
+* change into the repo directory
+* `yarn`
+
+### Running tests
+
+* `yarn test`
+
+### Update Documentation
+
+* `yarn update-docs`
 
 ## Credit
 

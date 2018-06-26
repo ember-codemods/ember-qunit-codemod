@@ -1,17 +1,9 @@
 'use strict';
 
-module.exports = function(file, api) {
-  let j = api.jscodeshift;
-  try {
-    let parser = require('recast/parsers/typescript');
+const { getParser } = require('codemod-cli').jscodeshift;
 
-    j = api.jscodeshift.withParser(parser);
-  } catch (e) {
-    // eslint-disable-next-line
-    console.log(
-      'Could not load typescript aware parser, falling back to standard recast parser...'
-    );
-  }
+module.exports = function(file, api) {
+  let j = getParser(api);
 
   const root = j(file.source);
 
