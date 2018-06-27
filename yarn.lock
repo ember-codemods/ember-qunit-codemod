@@ -1118,8 +1118,8 @@ code-point-at@^1.0.0:
   resolved "https://registry.yarnpkg.com/code-point-at/-/code-point-at-1.1.0.tgz#0d070b4d043a5bea33a2f1a40e2edb3d9a4ccf77"
 
 codemod-cli@^0.2.1:
-  version "0.2.1"
-  resolved "https://registry.yarnpkg.com/codemod-cli/-/codemod-cli-0.2.1.tgz#e4a8c33c4e7cae1b791ff6a57964098327a0a5e9"
+  version "0.2.2"
+  resolved "https://registry.yarnpkg.com/codemod-cli/-/codemod-cli-0.2.2.tgz#6f8707d9d206dc05467a3168c30dc229a4f0d5ae"
   dependencies:
     "@babel/parser" "^7.0.0-beta.51"
     chalk "^2.4.1"
