@@ -14,7 +14,7 @@ npx ember-qunit-codemod convert-module-for-to-setup-test path/of/files/ or/some*
 
 # or
 
-yarn global add special-project
+yarn global add ember-qunit-codemod
 ember-qunit-codemod convert-module-for-to-setup-test path/of/files/ or/some**/*glob.js
 ```
 
