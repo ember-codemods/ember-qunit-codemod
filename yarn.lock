@@ -214,6 +214,10 @@ ast-types@0.11.5:
   version "0.11.5"
   resolved "https://registry.yarnpkg.com/ast-types/-/ast-types-0.11.5.tgz#9890825d660c03c28339f315e9fa0a360e31ec28"
 
+ast-types@0.11.7:
+  version "0.11.7"
+  resolved "https://registry.yarnpkg.com/ast-types/-/ast-types-0.11.7.tgz#f318bf44e339db6a320be0009ded64ec1471f46c"
+
 astral-regex@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/astral-regex/-/astral-regex-1.0.0.tgz#6c8c3fb827dd43ee3918f27b82782ab7658a6fd9"
@@ -1098,8 +1102,8 @@ code-point-at@^1.0.0:
   resolved "https://registry.yarnpkg.com/code-point-at/-/code-point-at-1.1.0.tgz#0d070b4d043a5bea33a2f1a40e2edb3d9a4ccf77"
 
 codemod-cli@^0.2.1:
-  version "0.2.7"
-  resolved "https://registry.yarnpkg.com/codemod-cli/-/codemod-cli-0.2.7.tgz#a09e9aa48efc373deb1a1bce75be44fc9eabe987"
+  version "0.2.9"
+  resolved "https://registry.yarnpkg.com/codemod-cli/-/codemod-cli-0.2.9.tgz#98ca54796460b5df9b0f77b3b1e47504a9b82666"
   dependencies:
     "@babel/parser" "^7.0.0-beta.53"
     chalk "^2.4.1"
@@ -1111,7 +1115,7 @@ codemod-cli@^0.2.1:
     import-local "^1.0.0"
     jscodeshift "^0.5.1"
     pkg-up "^2.0.0"
-    recast "^0.15.0"
+    recast "^0.16.1"
     yargs "^11.0.0"
 
 collection-visit@^1.0.0:
@@ -3569,6 +3573,15 @@ recast@^0.15.0:
   resolved "https://registry.yarnpkg.com/recast/-/recast-0.15.0.tgz#b8c8bfdda245e1580c0a4d9fc25d4e820bf57208"
   dependencies:
     ast-types "0.11.5"
+    esprima "~4.0.0"
+    private "~0.1.5"
+    source-map "~0.6.1"
+
+recast@^0.16.1:
+  version "0.16.2"
+  resolved "https://registry.yarnpkg.com/recast/-/recast-0.16.2.tgz#3796ebad5fe49ed85473b479cd6df554ad725dc2"
+  dependencies:
+    ast-types "0.11.7"
     esprima "~4.0.0"
     private "~0.1.5"
     source-map "~0.6.1"
