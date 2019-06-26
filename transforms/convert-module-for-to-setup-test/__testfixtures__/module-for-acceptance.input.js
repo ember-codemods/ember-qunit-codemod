@@ -60,6 +60,13 @@ test('it works with andThen', function() {
   find('#my-block');
 });
 
+test('it works with inline andThen', function() {
+  visit('my-route');
+  andThen(() => assert.ok(true));
+  andThen(() => assert.ok(false));
+  find('#my-block');
+});
+
 test('it works with es5 andThen', function() {
   visit('my-route');
   andThen(function() {

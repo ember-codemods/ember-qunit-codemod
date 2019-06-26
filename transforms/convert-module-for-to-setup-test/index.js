@@ -470,7 +470,8 @@ module.exports = function(file, api) {
         .map(path => path.parent)
         .replaceWith(p => {
           let body = p.node.expression.arguments[0].body;
-          return body.body;
+
+          return body.body || j.expressionStatement(body);
         });
 
       if (replacements.length > 0) {
