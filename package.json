@@ -7,13 +7,13 @@
     "codemod",
     "qunit"
   ],
-  "homepage": "https://github.com/rwjblue/ember-qunit-codemod#readme",
+  "homepage": "https://github.com/ember-codemods/ember-qunit-codemod#readme",
   "bugs": {
-    "url": "https://github.com/rwjblue/ember-qunit-codemod/issues"
+    "url": "https://github.com/ember-codemods/ember-qunit-codemod/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rwjblue/ember-qunit-codemod.git"
+    "url": "git+https://github.com/ember-codemods/ember-qunit-codemod.git"
   },
   "license": "MIT",
   "author": "Robert Jackson <me@rwjblue.com>",
