@@ -59,6 +59,13 @@ module('Acceptance | AndThenRoute', function(hooks) {
     await find('#my-block');
   });
 
+  test('it works with inline andThen', async function() {
+    await visit('my-route');
+    assert.ok(true);
+    assert.ok(false);
+    await find('#my-block');
+  });
+
   test('it works with es5 andThen', async function() {
     await visit('my-route');
     assert.ok(true);
