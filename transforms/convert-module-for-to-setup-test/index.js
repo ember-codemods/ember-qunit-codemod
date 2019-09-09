@@ -77,6 +77,9 @@ module.exports = function(file, api) {
         subject = j.literal(`model:${calleeArguments[0].value}`);
       }
 
+      this.comments = p.node.comments;
+      this.trailingComments = p.node.trailingComments;
+
       this.originalSetupType = calleeName;
       this.moduleName = moduleName;
       this.moduleOptions = options;
@@ -451,6 +454,8 @@ module.exports = function(file, api) {
         }
       }
 
+      moduleInvocation.comments = moduleInfo.comments;
+      moduleInvocation.trailingComments = moduleInfo.trailingComments;
       moduleInfo.moduleInvocation = moduleInvocation;
 
       if (needsHooks === true) {
