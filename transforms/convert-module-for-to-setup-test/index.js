@@ -394,6 +394,10 @@ module.exports = function(file, api) {
               ? j.functionExpression(null, property.params, property.body)
               : property.value;
 
+          if (property.async) {
+            value.async = true;
+          }
+
           if (moduleInfo.setupType) {
             let expressionCollection = j(value);
 
